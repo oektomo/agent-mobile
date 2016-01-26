@@ -16,11 +16,18 @@
 #include <netdb.h>
 #include <unistd.h>
 
+#include <netinet/in.h>
+#include <errno.h>
+
+#include "dynamicwhell.cpp"
+
 #define BUFFER_SPACE 1000
 
 int socketfd1;	// socket file descriptor
 int newsd;		// accepted socket file descriptor
 int statusfd1;	// status when creating file descriptor
+
+void creating_socket();
 
 int main(int argc, char** argv)
 {
@@ -63,34 +70,68 @@ int main(int argc, char** argv)
 	/*
 	 * accepting connection
 	 */
-	int new_connection;
+	int accepted1;
 	struct sockaddr_storage their_addr;
 	socklen_t addr_size = sizeof(their_addr);
-	new_connection = accept(socketfd1, (struct sockaddr *)&their_addr, &addr_size);
-	if(new_connection == -1){
+	accepted1 = accept(socketfd1, (struct sockaddr *)&their_addr, &addr_size);
+	if(accepted1 == -1){
 		printf("listen/accept error\n");
 	} else {
 		printf("connection ACCEPTED\n");
 	}
 
+	ssize_t bytes_received, bytes_sent;
+	int childrecieve = fork();
+
+	if(childrecieve == 0){
+
 	/*
+	 * child process
 	 * receiving data
 	 */
-	ssize_t bytes_received;
+	printf("Receiving data\n");
 	char incoming_buffer[BUFFER_SPACE];
-	bytes_received = recv(new_connection, incoming_buffer, (BUFFER_SPACE-1), 0);
+	bytes_received = recv(accepted1, incoming_buffer, (BUFFER_SPACE-1), 0);
 	if(bytes_received == 0){
 		printf("host shutdown\n");
 	} else if(bytes_received == -1) {
 		printf("receive error\n");
 	}
 	incoming_buffer[bytes_received] = '\0';
+
+	printf("received data: ");
 	std::cout<<incoming_buffer<<std::endl;
+	} else if(childrecieve > 0) {
+	/*
+	 * sending data
+	 */
+	printf("Agent 3 sending data\n");
+	/*
+	try{
+		bytes_sent = send(socketfd1, "Agent sending data", 18, 0);
+	} catch(std::exception& e){
+		printf("sent error\n");
+	}*/
+	bytes_sent = write( accepted1, "Agent sending data", 18 );
+	if(bytes_sent < 0){
+		printf("ERROR writing to socket");
+	}
+
+	printf("%ld bytes sent\n",bytes_sent);
+	} else {
+		printf("child creation succeed\n");
+	}
+	//usleep(200000);
 
 	/*
 	 * closing socket
 	 */
-	close(new_connection);
+	close(accepted1);
 
 	return 0;
+}
+
+void creating_socket()
+{
+	printf("creating socket\n");
 }
