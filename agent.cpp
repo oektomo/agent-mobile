@@ -20,7 +20,7 @@
 #include <errno.h>
 
 #include "dynamicwhell.cpp"
-#include "serial1.hpp"
+#include "serial2.hpp"
 
 #define BUFFER_SPACE 1000
 
@@ -77,15 +77,15 @@ int main(int argc, char** argv)
 
 
 		// opening serial port
-		char portname[] = "/dev/ttyACM0";
+		char portname[] = "/dev/ttyUSB0";
 		int portfd = open_port(portname);
 		// writing serial port
 		char msg[100];
 		strncpy(msg, "ww", 2);
-		write_port(portfd, msg);
+		write_port(portfd, msg, 2);
 		sleep(2);
 		strncpy(msg, "xx", 2);
-		write_port(portfd, msg);
+		write_port(portfd, msg, 2);
 		close(portfd);		// close serial port
 
 
