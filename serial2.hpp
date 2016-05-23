@@ -14,6 +14,6 @@
 int open_port(char* port);
 int write_port(int filedesc, char* msg, ssize_t size);
 int read_port(int filedesc, char* msg);
-
+void parse_string(char* aochar, int* aoint, int stateSize);
 
 #endif /* SERIAL2_HPP_ */

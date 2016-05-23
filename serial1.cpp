@@ -73,7 +73,7 @@ int main(int argc, char* argv[])
 	sleep(1);
 
 
-	float speed[2], wheel[2], theta = 0.5;
+	double speed[2], wheel[2], theta = 0.5;
 	speed[X] = 0.3;
 	speed[Y] = 0.9;
 	wheel[R] = 2;

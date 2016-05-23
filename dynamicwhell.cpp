@@ -18,7 +18,7 @@
  * @return	wheel[2] speed
  * @bug		need to calibrate the wheel to digital!
  */
-void speed2wheel(float* speed, float theta, float* wheel)
+void speed2wheel(double* speed, double theta, double* wheel)
 {
 	wheel[0] = speed[0]*cos(theta) - RWIDE*speed[1]*sin(theta);
 	wheel[1] = speed[0]*sin(theta) + RWIDE*speed[1]*cos(theta);
@@ -67,7 +67,7 @@ void speed2wheel(float* speed, float theta, float* wheel)
  *
  * @bug		already implemented, optimizing and callibrate!, create latex mathematic
  */
-void wheel2position(int* wheelenc, float* position)
+void wheel2position(int* wheelenc, double* position)
 {
 	float deltaPosition[3];
 	float wheelencf[2];

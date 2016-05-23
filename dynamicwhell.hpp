@@ -14,7 +14,7 @@
 #define L		1
 #define X		0
 #define Y		1
-void speed2wheel(float* speed, float theta, float* wheel);
-void wheel2position(int* wheelenc, float* position);
+void speed2wheel(double* speed, double theta, double* wheel);
+void wheel2position(int* wheelenc, double* position);
 
 #endif /* DYNAMICWHELL_HPP_ */
