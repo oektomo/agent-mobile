@@ -18,6 +18,7 @@
 
 #include "dynamicwhell.cpp"
 #include "serial2.hpp"
+#include "network.hpp"
 
 #define BUFFER_SPACE 1000
 

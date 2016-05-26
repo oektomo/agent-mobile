@@ -11,6 +11,9 @@
 #include <stddef.h>
 #include <netinet/in.h>
 #include <errno.h>
+#include <stdio.h>
+#include <string.h>
+
 #include "network.hpp"
 
 int creating_socket()
@@ -31,7 +34,7 @@ int creating_socket()
 	host_info1.ai_socktype = SOCK_STREAM;
 	host_info1.ai_flags = AI_PASSIVE;
 	statusfd1 = getaddrinfo(NULL, "5556", &host_info1, &host_info_list1);
-	if(statusfd1 != 0) std::cout<<"getaddrinfo error"<<gai_strerror(statusfd1);
+	if(statusfd1 != 0) printf("getaddrinfo error %s\n", gai_strerror(statusfd1)); //std::cout<<"getaddrinfo error"<<gai_strerror(statusfd1);
 
 	/*
 	 * socket creation
@@ -49,7 +52,7 @@ int creating_socket()
 	statusfd1 = bind(socketfd1, host_info_list1->ai_addr, host_info_list1->ai_addrlen);
 	if(statusfd1 == -1){
 		perror("BIND");
-		exit(0);
+		return(0);
 	}
 
 	return socketfd1;

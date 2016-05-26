@@ -20,9 +20,32 @@
  */
 void speed2wheel(double* speed, double theta, double* wheel)
 {
-	wheel[0] = speed[0]*cos(theta) - RWIDE*speed[1]*sin(theta);
-	wheel[1] = speed[0]*sin(theta) + RWIDE*speed[1]*cos(theta);
+	wheel[0] = speed[X]*cos(theta) - RWIDE*speed[Y]*sin(theta);
+	wheel[1] = speed[X]*sin(theta) + RWIDE*speed[Y]*cos(theta);
+/*
+	cos(theta) -sin(theta)
+	sin(theta) cos(theta)
+*/
 }
+double** invmatrix2d(double x, double y, double theta)
+{
+        double **out=new double*[3];
+        for(int i = 0;i<3;i++)
+                out[i]=new double[3];
+
+        double out2[3];
+        out[0][0]=cos(theta);
+        out[0][1]=sin(theta);
+        out[0][2]=-sin(theta)*y-(cos(theta)*x);
+        out[1][0]=-out[0][1];
+        out[1][1]=out[0][0];
+        out[1][2]=-(cos(theta)*y-sin(theta)*x);
+        out[2][0]=0;
+        out[2][1]=0;
+        out[2][2]=1;
+        return out;
+}
+
 
 /**
  * @brief Computing from wheel (speed) encoder to position, input position[2] in radian
