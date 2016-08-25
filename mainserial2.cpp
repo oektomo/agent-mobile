@@ -22,7 +22,7 @@
 
 int main(int argc, char* argv[])
 {
-	// TODO: use library to parse argument 
+// TODO: use library to parse argument 
 	if(argc != 2 && argc!=3){
 		printf("%d argument inserted \n", argc-1);
 		printf("first argument serial portname\n");
@@ -41,14 +41,14 @@ int main(int argc, char* argv[])
 		write_port(fd, sentstring, sizesent+1);
 		return(0);
 	}
-	// Opening port
+// Opening port
 	int fd = open_port(argv[1]);
 	if(fd < 0){
 		printf("failed to open serial port\n");
 		return(-1);
 	}
 
-	// writing to serialport
+// writing to serialport
 	char sentstring[20];
 	strncpy(sentstring, "S-254&254E\0", strlen("S-254&254E\0"));
 	int readed = 0;
@@ -59,13 +59,13 @@ int main(int argc, char* argv[])
 	position[2] = 0;
 	int pipefd[2];
 	int result = pipe(pipefd);
-	// create pipe	result = fcntl(*pipefd, F_SETFL, (fcntl(*pipefd, F_GETFL, 0) | O_NONBLOCK));
+// create pipe	result = fcntl(*pipefd, F_SETFL, (fcntl(*pipefd, F_GETFL, 0) | O_NONBLOCK));
 	if(result < 0){
 		printf("set pipe nonblocking failed\n");
 	}
 	int read_process = fork();
 	if(read_process == 0) {
-		/*		 * child process		 */
+/************** child process for receiving data from serial		 */
 		if(close(pipefd[0]) == -1) printf("failed to close read end\n");
 		while(1) { 
 			readparseChar(fd, pipefd); 
@@ -81,17 +81,8 @@ int main(int argc, char* argv[])
 	if(filestate == NULL){
 		printf("open file, failed\n");
 	}
-	//fprintf(filestate, "file1\n");
 	fclose(filestate);
-	/*
-	std::stringstream sent_string_stream;
-	int LeftW = 0, RightW = 0;
-	sent_string_stream << "LeftW= "<< LeftW
-						<<"RightW= "<< RightW;
-	sent_string_stream << "L:" << LeftW
-						<< "&R:" << RightW;
-*/
-	// INITIAL CONDITIon
+// INITIAL CONDITIon
 	if(close(pipefd[1]) == -1) printf("failed to close write end\n");
 	double targetPosition[2], obstacle1[2], controlInput[2], controlInputWheel[2], Vx, Vy;
 	double rObstacle1;
@@ -106,7 +97,6 @@ int main(int argc, char* argv[])
 	int signL = 0, signR =0 ;
 	while(1){
 		filestate = fopen("mainserial3.txt","a");
-		//fwrite("haha\n", 5, 1, filestate);
 		// convert from float to string
 		positionKMin1[X] = position[X];
 		positionKMin1[Y] = position[Y];
@@ -120,41 +110,12 @@ int main(int argc, char* argv[])
 		if (controlR > 255) controlR = 255;
 		if (controlR < -255) controlR = -255;
 		signR = (controlR > 0) ? 1 : ((controlR < 0) ? -1 : 0);
-		//controlR = 255;
-		//controlL = 255;
 		snprintf(sentstring, sizeof(sentstring), "S%d&%dE", controlL, controlR);
 		int sizeSent = strlen(sentstring);
-		//printf("controlInput %f, %f, %f\n", controlInput[X], controlInput[Y], controlInput[2]);
-		//printf("Input %f, %f \n", controlInputWheel[X], controlInputWheel[Y]);
-		//printf("pwm %d, %d \n", controlL, controlR);
-		//printf("sent %d char %s\n", sizeSent, sentstring);
-/*		char controlLchar[10], controlRchar[10];
-		itoa(controlL, controlLchar, 10);
-		itoa(controlR, controlRchar, 10);
-		strcat(sentstring, "S");
-		strcat(sentstring, "controlLchar");
-		strcat(sentstring, "&");
-		strcat(sentstring, "controlRchar");
-		strcat(sentstring, "E");
-*/
-/*
-		int sizeSent = strlen(MESSAGESENT1);
-		strncpy(sentstring, MESSAGESENT1, sizeSent);
-		sentstring[sizeSent] = '\0';
-		write_port(fd, sentstring, sizeSent+1);
-		sleep(1);
-
-		sizeSent = strlen("S000&000E");
-		strncpy(sentstring, "S255&255E", sizeSent);
-		sentstring[sizeSent] = '\0';
-		write_port(fd, sentstring, sizeSent+1);
-		sleep(1);
-	*/
 		int stateReceived[8];
 		result=1;
 		for(int haha=0; haha<3; haha++){
-			result = read(pipefd[0], stateReceived, 9*sizeof(int));
-			//printf("%d reading\n", result);
+			result = read(pipefd[0], stateReceived, STATE_AMOUNT*sizeof(int));
 			if(result > 0){
 				int wheelenc[2];
 				wheelenc[L] = signL * stateReceived[1];
@@ -193,27 +154,12 @@ int main(int argc, char* argv[])
 				controlInput[X] = - kf*Ax;
 				controlInput[Y] = - kf*Ay;
 
-				/*
-				        deltaJx=goalfunction0([X(n,i)+delta_x;Y(n,i)],xgoal,w2) +...
-					                  obstaclefunction([X(n,i)+delta_x;Y(n,i)],w1) - NowJ;
-					deltaJy=goalfunction0([X(n,i);Y(n,i)+delta_y],xgoal,w2) +...
-						          obstaclefunction([X(n,i);Y(n,i)+delta_y],w1) - NowJ;        
-										            
-				        A(i,:)=[deltaJx/delta_x deltaJy/delta_y];
-*/
-				// CONTROL ALGORITHM
-				//fprintf(filestate,"%f cm | %f cm | %f | %f \n\r", position[X], position[Y], position[2], sqrt(position[X]*position[X]+position[Y]*position[Y]));
+				// END OF CONTROL ALGORITHM
 				fprintf(filestate,"%f %f %f %d %d %d %d %f %f \n\r", position[X], position[Y], position[2], wheelenc[L], wheelenc[R], controlL, controlR, Ax, Ay);
 				printf("%f %f %f %d %d %f %f \n\r", 
 					position[X], position[Y], position[2], 
 					wheelenc[L], wheelenc[R], controlInput[X], controlInput[Y]);
-				result = result / sizeof(int); /*
-				for(int indexprint=0; indexprint<result; indexprint++){
-					printf("%d ", stateReceived[indexprint]);
-					//fprintf(filestate, "%d ", stateReceived[indexprint]);
-				}*/
-				//printf("\n");
-				//fprintf(filestate, "\n");
+				result = result / sizeof(int); 
 			} else {
 				printf("pipe no reading\n");
 				break;
@@ -223,6 +169,4 @@ int main(int argc, char* argv[])
 		fclose(filestate);
 	}
 
-	//close(filedescwrite);
-	//close(filedescread);
 }
