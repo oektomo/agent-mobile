@@ -8,6 +8,7 @@
 #ifndef DYNAMICWHELL_HPP_
 #define DYNAMICWHELL_HPP_
 
+#define WHEEL_RAD 3.39
 #define RWIDE	14.5
 #define WHEEL_STEP_COEF	2.13
 #define R		0

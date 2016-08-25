@@ -13,16 +13,29 @@
 
 #include "dynamicwhell.hpp"
 
-/**	@brief	Input are speed, and theta in radian
+/**	@brief	Input are speed, and theta in radian. convert holonomic to non-holonomic
  *
  * @return	wheel[2] speed
  * @bug		need to calibrate the wheel to digital!
  */
 void speed2wheel(double* speed, double theta, double* wheel)
 {
+/*
+	double euclidxy = sqrt(speed[0]*speed[0] + speed[1]*speed[1]);
+	wheel[L] = 1/WHEEL_RAD * cos(theta) * speed[X] + RWIDE * sin(theta) /(2*WHEEL_RAD*euclidxy) * speed[X];
+	wheel[L] = wheel[L] + sin(theta)/WHEEL_RAD * speed[Y] - RWIDE * cos(theta) /(2*WHEEL_RAD*euclidxy) * speed[Y];
+	
+	wheel[R] = 1/WHEEL_RAD * cos(theta) * speed[X] - RWIDE * sin(theta) /(2*WHEEL_RAD*euclidxy) * speed[X];
+	wheel[R] = wheel[R] + sin(theta)/WHEEL_RAD * speed[Y] + RWIDE * cos(theta) /(2*WHEEL_RAD*euclidxy) * speed[Y];
+*/	
+	wheel[L] = 1/WHEEL_RAD * (cos(theta) * speed[X] + sin(theta) * speed[X] /2) ;
+	wheel[L] = wheel[L] + 1/WHEEL_RAD * (sin(theta) * speed[Y] - cos(theta) * speed[Y] /2);
+	
+	wheel[R] = 1/WHEEL_RAD * (cos(theta) * speed[X] - sin(theta) * speed[X] /2) ;
+	wheel[R] = wheel[R] + 1/WHEEL_RAD * (sin(theta) * speed[Y] + cos(theta) * speed[Y] /2);
+/*
 	wheel[0] = speed[X]*cos(theta) - RWIDE*speed[Y]*sin(theta);
 	wheel[1] = speed[X]*sin(theta) + RWIDE*speed[Y]*cos(theta);
-/*
 	cos(theta) -sin(theta)
 	sin(theta) cos(theta)
 */
@@ -99,7 +112,7 @@ void wheel2position(int* wheelenc, double* position)
 
 	deltaPosition[X] = (wheelencf[1]+wheelencf[0])/2 * cos(position[2]);
 	deltaPosition[Y] = (wheelencf[1]+wheelencf[0])/2 * sin(position[2]);
-	deltaPosition[2] = wheelencf[L]/RWIDE - wheelencf[R]/RWIDE;
+	deltaPosition[2] = wheelencf[R]/RWIDE - wheelencf[L]/RWIDE;
 
 	position[X] = deltaPosition[X]/2 + position[X];
 	position[Y] = deltaPosition[Y]/2 + position[Y];

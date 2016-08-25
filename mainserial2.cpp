@@ -1,5 +1,5 @@
 /*
- * serial2.cpp
+ * mainserial2.cpp
  *
  *  Created on: Feb 2, 2016
  *      Author: otm
@@ -16,15 +16,13 @@
 
 #include "mainserial2.hpp"
 #include "dynamicwhell.hpp"
+#include "serial3.hpp"
 
 #define MESSAGESENT1 "S-100&-100E"
 
-int parseChar(char* msg, int size, int* pipefd);
-int readparseChar(int portfd, int* pipefd);
-
-#ifdef TESTING
 int main(int argc, char* argv[])
 {
+	// TODO: use library to parse argument 
 	if(argc != 2 && argc!=3){
 		printf("%d argument inserted \n", argc-1);
 		printf("first argument serial portname\n");
@@ -55,7 +53,7 @@ int main(int argc, char* argv[])
 	strncpy(sentstring, "S-254&254E\0", strlen("S-254&254E\0"));
 	int readed = 0;
 	char msg[BUFFER_SIZE];	
-	double position[3];
+	double position[3], positionKMin1[3];
 	position[X] = 0;
 	position[Y] = 0;
 	position[2] = 0;
@@ -79,11 +77,11 @@ int main(int argc, char* argv[])
 	} else {
 		printf("child pid %d\n", read_process);
 	}
-	FILE* filestate = fopen("serial2.txt", "w");
+	FILE* filestate = fopen("mainserial3.txt", "w");
 	if(filestate == NULL){
 		printf("open file, failed\n");
 	}
-	fprintf(filestate, "file1\n");
+	//fprintf(filestate, "file1\n");
 	fclose(filestate);
 	/*
 	std::stringstream sent_string_stream;
@@ -93,21 +91,43 @@ int main(int argc, char* argv[])
 	sent_string_stream << "L:" << LeftW
 						<< "&R:" << RightW;
 */
+	// INITIAL CONDITIon
 	if(close(pipefd[1]) == -1) printf("failed to close write end\n");
-	double targetPosition[2], controlInput[2], controlInputWheel[2];
-	targetPosition[0] = 10;
-	targetPosition[1] = 0;
-	controlInput[0] = 0;
+	double targetPosition[2], obstacle1[2], controlInput[2], controlInputWheel[2], Vx, Vy;
+	double rObstacle1;
+	double attractiveControl[2], obsFunc0, goalFunc0, NowJ, delta_x, delta_y, deltaJx, deltaJy, Ax, Ay, kv = 8000, kf = 1250000;
+	targetPosition[0] = 80;
+	targetPosition[1] = 40;
+	obstacle1[X] = 30;
+	obstacle1[Y] = 20;
+	rObstacle1 = 5;
+	controlInput[0] = 12;
 	controlInput[1] = 0;
+	int signL = 0, signR =0 ;
 	while(1){
-		filestate = fopen("serial2.txt","a");
-		fwrite("haha\n", 5, 1, filestate);
+		filestate = fopen("mainserial3.txt","a");
+		//fwrite("haha\n", 5, 1, filestate);
 		// convert from float to string
+		positionKMin1[X] = position[X];
+		positionKMin1[Y] = position[Y];
 		// convert from position to wheel using invert of SE2 matrix
 		speed2wheel(controlInput, position[2], controlInputWheel);
 		int controlL = controlInputWheel[L]*SCALE_P;
+		if (controlL > 255) controlL = 255;
+		if (controlL < -255) controlL = -255;
+		signL = (controlL > 0) ? 1 : ((controlL < 0) ? -1 : 0);
 		int controlR = controlInputWheel[R]*SCALE_P;
+		if (controlR > 255) controlR = 255;
+		if (controlR < -255) controlR = -255;
+		signR = (controlR > 0) ? 1 : ((controlR < 0) ? -1 : 0);
+		//controlR = 255;
+		//controlL = 255;
 		snprintf(sentstring, sizeof(sentstring), "S%d&%dE", controlL, controlR);
+		int sizeSent = strlen(sentstring);
+		//printf("controlInput %f, %f, %f\n", controlInput[X], controlInput[Y], controlInput[2]);
+		//printf("Input %f, %f \n", controlInputWheel[X], controlInputWheel[Y]);
+		//printf("pwm %d, %d \n", controlL, controlR);
+		//printf("sent %d char %s\n", sizeSent, sentstring);
 /*		char controlLchar[10], controlRchar[10];
 		itoa(controlL, controlLchar, 10);
 		itoa(controlR, controlRchar, 10);
@@ -132,184 +152,77 @@ int main(int argc, char* argv[])
 	*/
 		int stateReceived[8];
 		result=1;
-		for(int haha=0; haha<50; haha++){
+		for(int haha=0; haha<3; haha++){
 			result = read(pipefd[0], stateReceived, 9*sizeof(int));
 			//printf("%d reading\n", result);
 			if(result > 0){
 				int wheelenc[2];
-				wheelenc[L] = stateReceived[L+1];
-				wheelenc[R] = stateReceived[R+1];
+				wheelenc[L] = signL * stateReceived[1];
+				wheelenc[R] = signR * stateReceived[2];
 				wheel2position(wheelenc, position);
-				controlInput[X] = -(position[X] - targetPosition[X]);
-				controlInput[Y] = -(position[Y] - targetPosition[Y]);
-				printf("%f cm | %f cm | %f | %f \n\r", position[X], position[Y], position[2], sqrt(position[X]*position[X]+position[Y]*position[Y]));
-				result = result / sizeof(int);
-				printf("%d ", haha);
+				// CONTROL ALGORITHM
+				attractiveControl[X] = -(position[X] - targetPosition[X]);
+				attractiveControl[Y] = -(position[Y] - targetPosition[Y]);
+				//controlInput[X] = -(position[X] - targetPosition[X]);
+				//controlInput[Y] = -(position[Y] - targetPosition[Y]);
+				
+				//function O=obstaclefunction(x,w1)
+				//O= w1 * (exp(-0.1 * ((x(1,1)-20)^2 + (x(2,1)-20)^2)));
+				obsFunc0 = W1 * exp( -0.1 * (pow((position[X] - obstacle1[X]),2) + pow((position[Y] - obstacle1[Y]),2)));
+				goalFunc0 = (pow(attractiveControl[X],2) + pow(attractiveControl[Y],2) ) * W2;
+				NowJ = obsFunc0 + goalFunc0;
+
+				delta_x = position[X] - positionKMin1[X];
+				delta_y = position[Y] - positionKMin1[Y];
+				if(delta_x == 0.0) delta_x = 0.01;
+				if(delta_y == 0.0) delta_y = 0.01;
+
+				deltaJx = (pow((position[X]-targetPosition[X]+delta_x), 2) + pow((position[Y] - targetPosition[Y]), 2) ) * W2 +
+				 W1 * exp( -0.1 * (pow((position[X] - obstacle1[X] + delta_x), 2) + pow((position[Y] - obstacle1[Y]), 2))) - NowJ;
+				deltaJy = (pow((position[X]-targetPosition[X]), 2) + pow((position[Y] - targetPosition[Y] + delta_y), 2) ) * W2 +
+				 W1 * exp( -0.1 * (pow((position[X] - obstacle1[X]), 2) + pow((position[Y] - obstacle1[Y] + delta_y), 2))) - NowJ;
+
+				Ax = deltaJx / delta_x;
+				Ay = deltaJy / delta_y;
+
+				Vx = delta_x / stateReceived[0];
+				Vy = delta_y / stateReceived[0];
+
+				//controlInput[X] = - kv * Vx - kf*Ax;
+				//controlInput[Y] = - kv * Vy - kf*Ay;
+				controlInput[X] = - kf*Ax;
+				controlInput[Y] = - kf*Ay;
+
+				/*
+				        deltaJx=goalfunction0([X(n,i)+delta_x;Y(n,i)],xgoal,w2) +...
+					                  obstaclefunction([X(n,i)+delta_x;Y(n,i)],w1) - NowJ;
+					deltaJy=goalfunction0([X(n,i);Y(n,i)+delta_y],xgoal,w2) +...
+						          obstaclefunction([X(n,i);Y(n,i)+delta_y],w1) - NowJ;        
+										            
+				        A(i,:)=[deltaJx/delta_x deltaJy/delta_y];
+*/
+				// CONTROL ALGORITHM
+				//fprintf(filestate,"%f cm | %f cm | %f | %f \n\r", position[X], position[Y], position[2], sqrt(position[X]*position[X]+position[Y]*position[Y]));
+				fprintf(filestate,"%f %f %f %d %d %d %d %f %f \n\r", position[X], position[Y], position[2], wheelenc[L], wheelenc[R], controlL, controlR, Ax, Ay);
+				printf("%f %f %f %d %d %f %f \n\r", 
+					position[X], position[Y], position[2], 
+					wheelenc[L], wheelenc[R], controlInput[X], controlInput[Y]);
+				result = result / sizeof(int); /*
 				for(int indexprint=0; indexprint<result; indexprint++){
 					printf("%d ", stateReceived[indexprint]);
-					fprintf(filestate, "%d ", stateReceived[indexprint]);
-				}
-				printf("\n");
-				fprintf(filestate, "\n");
+					//fprintf(filestate, "%d ", stateReceived[indexprint]);
+				}*/
+				//printf("\n");
+				//fprintf(filestate, "\n");
 			} else {
 				printf("pipe no reading\n");
 				break;
 			}
 		}
+		write_port(fd, sentstring, sizeSent+1);
 		fclose(filestate);
 	}
 
 	//close(filedescwrite);
 	//close(filedescread);
-}
-#endif
-
-/**
- * @brief open read only to serial port
- *
- * @tparam port port name
- */
-int open_port(char* port)
-{
-	//int fd = open("/dev/ttyUSB0", O_RDWR);
-	int fd = open(port, O_RDWR|O_NOCTTY);
-	if (fd == -1){
-		perror("open_read_port failed");
-		printf("%s\n", port);
-	} else {
-		printf("open_read_port %s succeed\n", port);
-	}
-	return fd;
-}
-
-/**
- * @brief writing to serial port
- */
-int write_port(int filedesc, char* msg, ssize_t size)
-{
-	int statusport1 = write(filedesc, msg, size);
-	if(statusport1 < 0){
-		printf("write() of %lu byte failed!",size);
-		fputs("\n", stderr);
-	} else {
-		//printf("message %lu write %d bytes\n",sizeof(msg), statusport1);
-		printf("message %s length %lu wrote %d bytes\n", msg, size, statusport1);
-	}
-	return statusport1;
-}
-
-/**
- * @brief reading from serial port
- */
-int read_port(int filedesc, char* msg)
-{
-	int readed = 0;
-	readed = read(filedesc, msg, sizeof(msg));
-	msg[readed] = '\0';
-
-	return readed;
-}
-
-char check_string(char findchar, char* msg)
-{
-	int index = 0;
-	if(msg[index] == findchar){
-		return findchar;
-	}
-	return findchar;
-}
-
-void parse_string(char* aochar, int* aoint, int stateSize)
-{
-	char* aoc1 = strtok(aochar, "E");
-	++aoc1;
-	aoint[0] = atoi(aoc1);
-	char* aoc2 = aoc1;
-	int stateReceived[5];
-	for(int indexint=1; indexint<stateSize; indexint++){
-		aoc2 = strchr(aoc2, '&');
-        	*aoc2 = '\0';
-	        ++aoc2;
-	        aoint[indexint] = atoi(aoc2);
-	}
-}
-
-int readparseChar(int portfd, int* pipefd)
-{
-	int readed;
-	char readchar[BUFFER_SIZE], msg[BUFFER_SIZE];	
-	int dt, LWE, RWE, LU, FU, RU, pointerArray = 0, packageNum = 0;
-	int cekS = 0, cekAmpersand = 0, cekE = 0;
-
-	double position[3];
-	char receivedArray[32];
-	while(cekS == 0 & cekE == 0){
-	readed = read_port(portfd, readchar);
-	readchar[readed] = '\0';
-	for(int i = 0; i < readed; i++) {
-		if(readchar[i] == 'S') cekS++;
-		if(readchar[i] == '&') cekAmpersand++;
-		if(readchar[i] == 'E') cekE++;
-	}
-	// tambahkan dari readchar ke msg
-		strcat(msg, readchar);
-	}
-	int size = strlen(msg);
-	for(int pointerMsg = 0; pointerMsg < size; pointerMsg++){
-		if(msg[pointerMsg] == 'S'){
-			pointerArray = 0;
-			receivedArray[0] = 'S';
-			pointerArray++;
-		} else if(msg[pointerMsg] == 'E'&& pointerArray != 0){
-			receivedArray[pointerArray] = 'E';
-			receivedArray[pointerArray+1] = '\0';
-			pointerArray = 0;
-
-			int stateReceived[9];
-			parse_string(receivedArray, stateReceived, 8);
-			stateReceived[8] = packageNum;
-			packageNum++;
-			int result = write(pipefd[1], stateReceived, (1+STATE_AMOUNT)*sizeof(int));
-			//printf("%d byte write to pipe", result);
-			int wheelenc[2];
-			wheelenc[L] = stateReceived[L+1];
-			wheelenc[R] = stateReceived[R+1];
-			wheel2position(wheelenc, position);
-		} else if(pointerArray < 32 && pointerArray != 0){
-			receivedArray[pointerArray] = msg[pointerMsg];
-			pointerArray++;
-		}
-	}
-}
-
-int parseChar(char* msg, int size, int* pipefd)
-{
-	int dt, LWE, RWE, LU, FU, RU, pointerArray = 0, packageNum = 0;
-	double position[3];
-	char receivedArray[32];
-	for(int pointerMsg = 0; pointerMsg < size; pointerMsg++){
-		if(msg[pointerMsg] == 'S'){
-			pointerArray = 0;
-			receivedArray[0] = 'S';
-			pointerArray++;
-		} else if(msg[pointerMsg] == 'E'&& pointerArray != 0){
-			receivedArray[pointerArray] = 'E';
-			receivedArray[pointerArray+1] = '\0';
-			pointerArray = 0;
-
-			int stateReceived[9];
-			parse_string(receivedArray, stateReceived, 8);
-			stateReceived[8] = packageNum;
-			packageNum++;
-			int result = write(pipefd[1], stateReceived, 9*sizeof(int));
-			printf("%d byte write to pipe", result);
-			int wheelenc[2];
-			wheelenc[L] = stateReceived[L+1];
-			wheelenc[R] = stateReceived[R+1];
-			wheel2position(wheelenc, position);
-		} else if(pointerArray < 32 && pointerArray != 0){
-			receivedArray[pointerArray] = msg[pointerMsg];
-			pointerArray++;
-		}
-	}
 }

@@ -8,6 +8,7 @@ int main(int argc, char **argv)
 {
 	if(argc != 2){
 		printf("please specify the file.cfg name\n");
+		printf("example: %s file.cfg\n", argv[0]);
 		return 0;
 	}
 
