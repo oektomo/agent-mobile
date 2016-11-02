@@ -20,6 +20,7 @@
  */
 void speed2wheel(double* speed, double theta, double* wheel)
 {
+	//theta = theta*1.5;
 /*
 	double euclidxy = sqrt(speed[0]*speed[0] + speed[1]*speed[1]);
 	wheel[L] = 1/WHEEL_RAD * cos(theta) * speed[X] + RWIDE * sin(theta) /(2*WHEEL_RAD*euclidxy) * speed[X];
@@ -40,6 +41,54 @@ void speed2wheel(double* speed, double theta, double* wheel)
 	sin(theta) cos(theta)
 */
 }
+
+int saturate(int* dataToSaturate, int saturationValue)
+{
+	if (*dataToSaturate > saturationValue) *dataToSaturate = saturationValue;
+	if (*dataToSaturate < -saturationValue) *dataToSaturate = -saturationValue;
+	int sign = (dataToSaturate > 0) ? 1 : ((dataToSaturate < 0) ? -1 : 0);
+	return sign;
+}
+
+double addingBacklash(double src)
+{
+	if(src > 0)
+		src = src + ADD_P;
+	else
+		src = src - ADD_P;
+	return src;
+}
+
+/*
+	need to refine the constanta SCALE_P
+	maybe try adding to remove the lower part PWM didn't move the motor
+	input as a float, output as a int
+*/
+void saturateKeepVector(double* src, int* dst, int* sign, int saturationValue)
+{
+//	src[L] = src[L]*SCALE_P;
+//	src[R] = src[R]*SCALE_P;
+//	src[L] = src[L]+ADD_P;
+//	src[R] = src[R]+ADD_P;
+	sign[L] = (src[L] > 0) ? 1 : ((src[L] < 0) ? -1 : 0);
+	sign[R] = (src[R] > 0) ? 1 : ((src[R] < 0) ? -1 : 0);
+	src[L] = fabs(src[L]);
+	src[R] = fabs(src[R]);
+	src[L] = src[L] + ADD_P;
+	src[R] = src[R] + ADD_P;
+	if(src[L] < src[R]) {
+		// abs(src[L]) < abs(src[R])
+		src[L] = saturationValue*src[L]/src[R];
+		dst[L] = sign[L]*src[L];
+		dst[R] = sign[R]*saturationValue;
+	} else {
+		// abs(src[R]) < abs(src[L])
+		src[R] = saturationValue*src[R]/src[L];
+		dst[R] = sign[R]*src[R];
+		dst[L] = sign[L]*saturationValue;
+	}
+}
+
 double** invmatrix2d(double x, double y, double theta)
 {
         double **out=new double*[3];

@@ -2,7 +2,12 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <libconfig.h>
+
 #define EXIT_FAILURE -1
+#define ANSI_COLOR_YELLOW "\x1b[33m"
+#define ANSI_COLOR_GREEN	"\x1b[32m"
+#define ANSI_COLOR_RED	"\x1b[31m"
+#define ANSI_COLOR_RESET "\x1b[0m"
 
 int main(int argc, char **argv)
 {
@@ -13,7 +18,7 @@ int main(int argc, char **argv)
 	}
 
 	config_t cfg, *cf;
-	
+// opening configuration file
 	cf = &cfg;
 	config_init(cf);
 
@@ -25,15 +30,16 @@ int main(int argc, char **argv)
 		config_destroy(cf);
 		return(EXIT_FAILURE);
 	}
-
+	printf(ANSI_COLOR_GREEN "[INFO] configuration file opened\n" ANSI_COLOR_RESET);
 	const char *appWindowTitle = NULL;
 	if(config_lookup_string(cf, "application.window.title", &appWindowTitle))
 		printf("Window Title: %s\n", appWindowTitle);
-
+// locate another string
 	const char *ipAgent1 = NULL;
 	if(config_lookup_string(cf, "ipAgent1", &ipAgent1))
 		printf("IP Agent 1 = %s\n", ipAgent1);
 
+// reading 2 dimension array.
 	const config_setting_t *A_mat, *A_matRow, *A_element;
 	const config_setting_t *A_mat2, *A_matRow2;
 	int A_col, A_row, A_int;
@@ -56,14 +62,14 @@ int main(int argc, char **argv)
 		}
 	    printf("\n");
 	}
-	printf("closing configuration file\n");
+	printf(ANSI_COLOR_YELLOW "[INFO] closing configuration file\n" ANSI_COLOR_RESET);
 	config_destroy(cf);
 	printf("printing matrix\n");
 	for(int introw=0; introw<A_row; introw++) {
 		for(int intcol=0; intcol<A_col; intcol++) {
-		    printf("%d ",A_array[introw][intcol]);
+			printf("%d ",A_array[introw][intcol]);
 		}
-	    printf("\n");
+		printf("\n");
 	}
 	return 0;
 }

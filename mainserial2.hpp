@@ -10,8 +10,7 @@
 
 #define BUFFER_SIZE 100
 #define STATE_AMOUNT 8
-#define SCALE_P 15
 
-#define W1 20
+#define W1 100
 #define W2 0.02
 #endif /* SERIAL2_HPP_ */
