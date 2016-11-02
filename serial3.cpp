@@ -96,24 +96,17 @@ void parse_string(char* aochar, int* aoint, int stateSize)
 	}
 }
 
-/*
-* make up this section
-* most likely we should break into simpler part
+/**
+* read from serial port until header 'S' and tail 'E' received
+*
 */
-int readparseChar(int portfd, int* pipefd)
+int getFrame(int portfd, char* msg)
 {
-	int readed;
-	char readchar[BUFFER_SIZE], msg[BUFFER_SIZE];	
-	int dt, LWE, RWE, LU, FU, RU, pointerArray = 0, packageNum = 0;
 	int cekS = 0, cekAmpersand = 0, cekE = 0, rec_data = 0;
+	char readchar[BUFFER_SIZE];
 
-	double position[3];
-	char receivedArray[32];
-	for (int i=0; i<BUFFER_SIZE; i++) msg[i]='\0';
-
-	// read from serial port until header 'S' and tail 'E' received
 	while(cekS == 0 | cekE == 0) {
-	readed = read_port(portfd, readchar);
+	int readed = read_port(portfd, readchar);
 	readchar[readed] = '\0';
 	for(int i = 0; i < readed; i++) {
 		if(readchar[i] == 'S') cekS++;
@@ -126,38 +119,33 @@ int readparseChar(int portfd, int* pipefd)
 		strcat(msg, readchar);
 		rec_data = rec_data + readed;
 	}
-	} 
+	}
+
+	return(rec_data);
+
+}
+
+/**
+* make up this section
+* most likely we should break into simpler part
+*/
+int readparseChar(int portfd, int* pipefd)
+{
+	char msg[BUFFER_SIZE];	
+	int pointerArray = 0, packageNum = 0;
+
+	double position[3];
+	char receivedArray[32];
+	for (int i=0; i<BUFFER_SIZE; i++) msg[i]='\0';
+
+	int size = getFrame(portfd, msg);
+	msg[size] = '\0';
 	// done collecting one package data, start parsing
 	//printf("parse %d data: %s\n", rec_data, msg);
-
-	// parse from 'msg'
-	// TODO: create circular buffer here
-	int size = strlen(msg);
-	for(int pointerMsg = 0; pointerMsg < size; pointerMsg++) {
-		if(msg[pointerMsg] == 'S') {
-			pointerArray = 0;
-			receivedArray[0] = 'S';
-			pointerArray++;
-		} else if(msg[pointerMsg] == 'E'&& pointerArray != 0){
-			receivedArray[pointerArray] = 'E';
-			receivedArray[pointerArray+1] = '\0';
-			pointerArray = 0;
-
-			int stateReceived[9];
-			parse_string(receivedArray, stateReceived, 8);
-			stateReceived[8] = packageNum;
-			packageNum++;
-			int result = write(pipefd[1], stateReceived, (STATE_AMOUNT)*sizeof(int));
-			printf("%d byte write to pipe", result);
-			int wheelenc[2];
-			wheelenc[L] = stateReceived[L+1];
-			wheelenc[R] = stateReceived[R+1];
-			wheel2position(wheelenc, position);
-		} else if(pointerArray < 32 && pointerArray != 0) {
-			receivedArray[pointerArray] = msg[pointerMsg];
-			pointerArray++;
-		}
-	}
+	int stateReceived[9];
+	parse_string(msg, stateReceived, 8);
+	int result = write(pipefd[1], stateReceived, (STATE_AMOUNT)*sizeof(int));
+	printf("%d byte write to pipe", result);
 }
 
 int parseChar(char* msg, int size, int* pipefd)

@@ -293,11 +293,21 @@ int main(int argc, char* argv[])
 
 				Vx = delta_x / stateReceived[0] * 1000; // dx/dt
 				Vy = delta_y / stateReceived[0] * 1000; // dy/dt
+/*
+				write(connfd, 'S', sizeof(char)); 
+				write(connfd, Vx, sizeof(double)); 
+				write(connfd, '&', sizeof(char)); 
+				write(connfd, Vy, sizeof(double)); 
+				write(connfd, 'E', sizeof(char));
+				sockRead = read(connfd, recvBuff, sizeof(recvBuff)-1);
 
+				double Pjx = 
+				Pjy = 
+*/
 				//controlInput[X] = - kv * Vx - kf*Ax;
 				//controlInput[Y] = - kv * Vy - kf*Ay;
-				controlInput[X] = - kf*Ax;
-				controlInput[Y] = - kf*Ay;
+				controlInput[X] = - kf*Ax;// + Pjx;
+				controlInput[Y] = - kf*Ay;// + Pjy;
 
 // END OF CONTROL ALGORITHM
 				fprintf(filestate,"%f %f %f %d %d %d %d %f %f %f %f\n\r", position[X], position[Y], position[2], wheelenc[L], wheelenc[R], control[L], control[R], Ax, Ay, obsFunc0, NowJ);
