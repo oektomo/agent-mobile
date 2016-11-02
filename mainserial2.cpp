@@ -22,6 +22,7 @@
 #include "dynamicwhell.hpp"
 #include "serial3.hpp"
 #include "iicsource/iic_hmc3_lib.h"
+#include "network/server_make.hpp"
 
 #define MESSAGESENT1 "S-100&-100E"
 #define ANSI_COLOR_YELLOW "\x1b[33m"
@@ -150,30 +151,16 @@ int main(int argc, char* argv[])
 	if(result < 0){
 		printf("set pipe nonblocking failed\n");
 	}
+// FORKING CHILD FOR SERIAL COMM
 	int read_process = fork();
 	if(read_process == 0) {
-/************** child process for receiving data from serial		 */
-		printf("this is child\n");
-		umask(0);
-		pid_t  sid = setsid();
-		if(sid < 0) printf("setsid failed\n");
-		else printf("setsid done?\n");
-		//close( STDIN_FILENO );
-		//close( STDOUT_FILENO );
-		int fd = open("/dev/null",O_RDWR, 0);
+/************** CHILD process for receiving data from serial		 */
+		printf("this is child, blocking output from child\n");
+		blockPrintf();
 
-		if (fd != -1) {
-			dup2 (fd, STDIN_FILENO);
-			dup2 (fd, STDOUT_FILENO);
-			dup2 (fd, STDERR_FILENO);
-
-			if (fd > 2) {
-				close (fd);
-			}
-		}
 		if(close(pipefd[0]) == -1) printf("failed to close read end\n");
 		while(1) {
-		printf("waiting readparseChar()\n");
+			printf("waiting readparseChar()\n");
 			readparseChar(serialPortfd, pipefd); 
 		}
 		return 0;
@@ -244,22 +231,17 @@ int main(int argc, char* argv[])
 		// convert from float to string
 		// convert from position to wheel using invert of SE2 matrix
 		speed2wheel(controlInput, position[2], controlInputWheel);
-		/*
-		int controlL = controlInputWheel[L]*SCALE_P;
-		signL = saturate(&controlL, 255);
-		int controlR = controlInputWheel[R]*SCALE_P;
-		signR = saturate(&controlR, 255);
-		*/
 		saturateKeepVector(controlInputWheel, control, sign, 255);
 
 		snprintf(sentstring, sizeof(sentstring), "S%d&%dE", control[L], control[R]);
 		int sizeSent = strlen(sentstring);
-		int stateReceived[8];
+		int stateReceived[STATE_AMOUNT];
 		result=1;
 		printf(ANSI_COLOR_YELLOW "[INFO] waiting for state received\n" ANSI_COLOR_RESET);
 		for(int repeat=0; repeat<1; repeat++) {
 			result = read(pipefd[0], stateReceived, STATE_AMOUNT*sizeof(int));
-			if(result > 0){
+			if(result > 0) {
+				printf("%d stateReceived: %d %d %d %d \n", result, stateReceived[0], stateReceived[1], stateReceived[2], stateReceived[3]);
 			// get wheelEncoder counter and calculate position
 				int wheelenc[2];
 				wheelenc[L] = sign[L] * stateReceived[1];
@@ -282,7 +264,7 @@ int main(int argc, char* argv[])
 				
 				//function O=obstaclefunction(x,w1)
 				//O= w1 * (exp(-0.1 * ((x(1,1)-20)^2 + (x(2,1)-20)^2)));
-				obsFunc0 = W1 * exp( -0.01 * (pow((position[X] - obstacle1[X]),2) + pow((position[Y] - obstacle1[Y]),2))/obsRad);
+				obsFunc0 = W1 * exp( -0.1 * (pow((position[X] - obstacle1[X]),2) + pow((position[Y] - obstacle1[Y]),2))/obsRad);
 				goalFunc0 = (pow(attractiveControl[X],2) + pow(attractiveControl[Y],2) ) * W2;
 				NowJ = obsFunc0 + goalFunc0;
 				//NowJ = goalFunc0;
@@ -309,19 +291,19 @@ int main(int argc, char* argv[])
 				Ax = deltaJx / delta_x;
 				Ay = deltaJy / delta_y;
 
-				Vx = delta_x / stateReceived[0];
-				Vy = delta_y / stateReceived[0];
+				Vx = delta_x / stateReceived[0] * 1000; // dx/dt
+				Vy = delta_y / stateReceived[0] * 1000; // dy/dt
 
-				controlInput[X] = - kv * Vx - kf*Ax;
-				controlInput[Y] = - kv * Vy - kf*Ay;
-				//controlInput[X] = - kf*Ax;
-				//controlInput[Y] = - kf*Ay;
+				//controlInput[X] = - kv * Vx - kf*Ax;
+				//controlInput[Y] = - kv * Vy - kf*Ay;
+				controlInput[X] = - kf*Ax;
+				controlInput[Y] = - kf*Ay;
 
 // END OF CONTROL ALGORITHM
 				fprintf(filestate,"%f %f %f %d %d %d %d %f %f %f %f\n\r", position[X], position[Y], position[2], wheelenc[L], wheelenc[R], control[L], control[R], Ax, Ay, obsFunc0, NowJ);
-				printf("%f %f %f %d %d %f %f \n\r", 
+				printf("%f %f %f %f %f %d\n\r", 
 					position[X], position[Y], position[2], 
-					wheelenc[L], wheelenc[R], controlInput[X], controlInput[Y]);
+					Vx, Vy, stateReceived[0]);
 				result = result / sizeof(int); 
 			} else {
 				printf("pipe no reading\n");
