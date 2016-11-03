@@ -5,7 +5,6 @@
  *      Author: otm
  */
 
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -16,6 +15,7 @@
 #include <math.h>
 #include <libconfig.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
 
 #include "tools.h"
 #include "mainserial2.hpp"
@@ -23,6 +23,7 @@
 #include "serial3.hpp"
 #include "iicsource/iic_hmc3_lib.h"
 #include "network/server_make.hpp"
+#include "network/client_make.h"
 
 #define MESSAGESENT1 "S-100&-100E"
 #define ANSI_COLOR_YELLOW "\x1b[33m"
@@ -137,19 +138,67 @@ int main(int argc, char* argv[])
 			printf("config.cfg not found or can't be open\n");
 			return(EXIT_FAILURE);
 		}
-	// get data from config file
+// get data from config file
 	const char *agentNumber=NULL;
 	config_lookup_string(cf, "agent_num", &agentNumber);
 	int agentNum = atoi(agentNumber);
+	const char *confNumber=NULL;
+	config_lookup_string(cf, "server", &confNumber);
+	int serverBool = atoi(confNumber);
+	const char *ipServer=NULL;
+	config_lookup_string(cf, "serverIp", &ipServer);
+	char *ipServerChar;
+
+	const char *posX=NULL;
+	config_lookup_string(cf, "posX", &posX);
+	double posXdouble = atof((char*) posX);
+	const char *posY=NULL;
+	config_lookup_string(cf, "posY", &posY);
+	double posYdouble = atof((char*) posY);
+	printf("agent num: %d position[%f, %f]\n", agentNum, posXdouble, posYdouble);
+//  preparation for NETWORK and create server if it's ok with config.cfg
+	int serverfd = 0, connfd = 0;
+	if(serverBool) {
+		serverfd = create_server();
+		printf("server created with %d fd, waiting to accept client\n", serverfd);
+		connfd = accept(serverfd, (struct sockaddr*) NULL, NULL);
+		printf("a client connect with %d file descriptor\n", connfd);
+
+		double data[4];
+		data[0] = atof(argv[1]);
+		data[1] = data[0]*20;
+		data[2] = data[0]*3;
+		data[3] = data[0]*4;
+		sleep(1);
+		printf("sent data %f\n",data[0]);
+		char recvBuff[34];
+		double Rdata[2];
+		while(1) {
+			sentData(connfd, data, 32);
+			readSocket(connfd, recvBuff, Rdata, 33);
+			printf("readSocket() done, %f %f\n", Rdata[0], Rdata[1]);
+		}
+	} else { // this is as client
+		connfd = create_client((char *)ipServer);
+		printf("client connect with %d file descriptor\n", connfd);
+		char recvBuff[34];
+		double Rdata[2];
+		double data[4];
+		data[0] = 3.12145;
+		data[1] = data[0]*20;
+		while(1) {
+			sentData(connfd, data, 32);
+			readSocket(connfd, recvBuff, Rdata, 33);
+			printf("readSocket() done, %f %f\n", Rdata[0], Rdata[1]);
+		}
+
+	}
 	while(1);
 		
-// TODO : use libconfig to save constant and some configuration. and then start using make to compile
-
-// writing to serialport
-	char sentstring[20];
-	//strncpy(sentstring, "S-254&254E\0", strlen("S-254&254E\0"));
+// preparation FORKING CHILD FOR SERIAL COMM
+	char sentstring[20];// write buffer to serialport
 	int readed = 0;
-	char msg[BUFFER_SIZE];	
+	char msg[BUFFER_SIZE];	// read buffer from serialport
 	int pipefd[2];
 	printf(ANSI_COLOR_YELLOW"[INFO] creating pipe\n"ANSI_COLOR_RESET);
 	int result = pipe(pipefd);
@@ -176,6 +225,7 @@ int main(int argc, char* argv[])
 	} else {
 		printf("child pid %d\n", read_process);
 	}
+
 /************** parent process **********************/
 // opening file for logging data, also to delete data from previous experiment
 	printf("after creating child with pid %d\n",read_process);
