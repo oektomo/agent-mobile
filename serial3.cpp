@@ -52,7 +52,7 @@ int write_port(int filedesc, char* msg, ssize_t size)
 }
 
 /**
- * @brief reading from serial port
+ * @brief reading from serial port and add '\0' at the end of string
  */
 int read_port(int filedesc, char* msg)
 {
@@ -75,8 +75,8 @@ char check_string(char findchar, char* msg)
 /**
 
  to convert? to parse?
-
-void parse_string(
+* @brief to parse string and convert to array of integer
+parse_string(
 char* aochar,  
 int* aoint, 
 int stateSize)
@@ -126,16 +126,34 @@ int getFrame(int portfd, char* msg)
 }
 
 /**
-* make up this section
-* most likely we should break into simpler part
+* @brief input string with single start char, single end char, '&' delimiter
+*	stateSize telling how much data being extract
+* @bug kemungkinan bug adalah, string yang diinputkan diedit oleh program
+*	agak menghawatirkan, jadi balikkan akan menghilangkan delimiter
+*/
+void parseStrToInt(char* aochar, int* aoint, int stateSize)
+{
+	//char* aoc1 = strtok(aochar, "E");
+	char* aoc1 = aochar;
+	++aoc1;
+	aoint[0] = atoi(aoc1);
+	char* aoc2 = aoc1;
+	for(int indexint=1; indexint<stateSize; indexint++) {
+		aoc2 = strchr(aoc2, '&');
+        	//*aoc2 = '\0';
+	        ++aoc2;
+	        aoint[indexint] = atoi(aoc2);
+	}
+}
+
+/**
+* @brief to read from serial port and sent data to logical pipe
 */
 int readparseChar(int portfd, int* pipefd)
 {
 	char msg[BUFFER_SIZE];	
 	int pointerArray = 0, packageNum = 0;
 
-	double position[3];
-	char receivedArray[32];
 	for (int i=0; i<BUFFER_SIZE; i++) msg[i]='\0';
 
 	int size = getFrame(portfd, msg);
@@ -143,11 +161,14 @@ int readparseChar(int portfd, int* pipefd)
 	// done collecting one package data, start parsing
 	//printf("parse %d data: %s\n", rec_data, msg);
 	int stateReceived[9];
-	parse_string(msg, stateReceived, 8);
+	parseStrToInt(msg, stateReceived, 8);
 	int result = write(pipefd[1], stateReceived, (STATE_AMOUNT)*sizeof(int));
 	printf("%d byte write to pipe", result);
 }
 
+/**
+* obsolete, noone use it and can remove safely
+*/
 int parseChar(char* msg, int size, int* pipefd)
 {
 	int dt, LWE, RWE, LU, FU, RU, pointerArray = 0, packageNum = 0;

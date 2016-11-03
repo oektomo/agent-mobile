@@ -124,18 +124,24 @@ int main(int argc, char* argv[])
 		}
 	}
 	}
+	// default no appropriate argument feed to program
 	if(!pflag)
 		serialPortfd = open_port(serialPortdefault);
 	if(!cflag)
-		if(!config_read_file(cf, "config.txt")) {
+		if(!config_read_file(cf, "config.cfg")) {
 			fprintf(stderr, "%s:%d - %s\n",
 			 config_error_file(cf),
 			 config_error_line(cf),
 			 config_error_text(cf));
 			config_destroy(cf);
-			printf("config.txt not found or can't be open\n");
+			printf("config.cfg not found or can't be open\n");
 			return(EXIT_FAILURE);
 		}
+	// get data from config file
+	const char *agentNumber=NULL;
+	config_lookup_string(cf, "agent_num", &agentNumber);
+	int agentNum = atoi(agentNumber);
+	while(1);
 		
 // TODO : use libconfig to save constant and some configuration. and then start using make to compile
 
