@@ -171,25 +171,25 @@ int main(int argc, char* argv[])
 		data[3] = data[0]*4;
 		sleep(1);
 		printf("sent data %f\n",data[0]);
-		char recvBuff[34];
 		double Rdata[2];
 		while(1) {
 			sentData(connfd, data, 32);
-			readSocket(connfd, recvBuff, Rdata, 33);
+			readSocket(connfd, Rdata, 33);
 			printf("readSocket() done, %f %f\n", Rdata[0], Rdata[1]);
 		}
 	} else { // this is as client
 		connfd = create_client((char *)ipServer);
 		printf("client connect with %d file descriptor\n", connfd);
-		char recvBuff[34];
 		double Rdata[2];
 		double data[4];
 		data[0] = 3.12145;
 		data[1] = data[0]*20;
+		data[2] = data[0]*3;
+		data[3] = data[0]*4;
 		while(1) {
 			sentData(connfd, data, 32);
-			readSocket(connfd, recvBuff, Rdata, 33);
-			printf("readSocket() done, %f %f\n", Rdata[0], Rdata[1]);
+			readSocket(connfd, Rdata, 33);
+			printf("readSocket() done, %f %f %f %f\n", Rdata[0], Rdata[1], Rdata[2], Rdata[3]);
 		}
 
 	}

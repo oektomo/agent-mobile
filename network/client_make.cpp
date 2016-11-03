@@ -7,7 +7,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
-#include <arpa/inet.h> 
+#include <arpa/inet.h>
+
+#include "client_make.h"
 
 /**
 * create and connect client
@@ -56,11 +58,12 @@ int create_client( char* address )
 * generic read from socket
 * blocking while socket open
 */
-void readSocket(int sockfd, char* recvBuff, double* data, int size)
+void readSocket(int sockfd, double* data, int size)
 {
 	ssize_t readed;
 	char readchar[2];
 	int cekS = 0, cekE = 0, rec_data = 0;
+	char recvBuff[STATE_SENT+3];
     while ( (readed = read(sockfd, readchar, 1)) > 0 ) {
     	// getFrame
 	for(int i = 0; i < readed; i++) {
@@ -72,14 +75,14 @@ void readSocket(int sockfd, char* recvBuff, double* data, int size)
 		recvBuff[rec_data] = readchar[0];
 		rec_data = rec_data + readed;
 	}
-	// frame already get and copy into data.
+	// frame already get then copy into data.
 
-	if((cekE > 0)&&(rec_data >=18)) {
+	if( (cekE > 0)&&(rec_data >= (STATE_SENT+2)) ) {
 		cekS = 0; cekE = 0;
 		printf("readed %d char\n",rec_data);
 		recvBuff[rec_data]='\0';
 		rec_data = 0;
-		memcpy(data, recvBuff+1, 16);
+		memcpy(data, recvBuff+1, STATE_SENT);
 		printf("raw data %s \n",recvBuff);
 		printf("data, %f & %f\n", data[0], data[1]);
 		memset(recvBuff, 0, 34);
@@ -95,12 +98,13 @@ void readSocket(int sockfd, char* recvBuff, double* data, int size)
 
 void sentData(int sockfd, double* fData, int size)
 {
-	char dataF[33];
-	dataF[32] = '\0';
+	char dataF[STATE_SENT+3];
 	dataF[0] = 'S';
-	memcpy(dataF+1, fData, 16);
-	dataF[17] = 'E';
-	dataF[18] = '\0';
+	//memcpy(dataF+1, fData, 16);
+	memcpy(dataF+1, fData, STATE_SENT);
+	//dataF[17] = 'E';
+	dataF[STATE_SENT+1] = 'E';
+	dataF[STATE_SENT+2] = '\0';
 	printf("raw data %s \n",dataF);
-	write(sockfd, dataF, 18);
+	write(sockfd, dataF, STATE_SENT+2);
 }
