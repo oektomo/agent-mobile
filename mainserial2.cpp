@@ -22,8 +22,7 @@
 #include "dynamicwhell.hpp"
 #include "serial3.hpp"
 #include "iicsource/iic_hmc3_lib.h"
-#include "network/server_make.hpp"
-#include "network/client_make.h"
+#include "network/network.hpp"
 
 #define MESSAGESENT1 "S-100&-100E"
 #define ANSI_COLOR_YELLOW "\x1b[33m"
