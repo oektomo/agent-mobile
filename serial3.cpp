@@ -134,7 +134,8 @@ int getFrame(int portfd, char* msg)
 void parseStrToInt(char* aochar, int* aoint, int stateSize)
 {
 	//char* aoc1 = strtok(aochar, "E");
-	char* aoc1 = aochar;
+		
+	char* aoc1 =  strchr(aochar, 'S');
 	++aoc1;
 	aoint[0] = atoi(aoc1);
 	char* aoc2 = aoc1;
@@ -159,11 +160,12 @@ int readparseChar(int portfd, int* pipefd)
 	int size = getFrame(portfd, msg);
 	msg[size] = '\0';
 	// done collecting one package data, start parsing
-	//printf("parse %d data: %s\n", rec_data, msg);
+	//printf("parse %d data: %s\n", size, msg);
 	int stateReceived[9];
 	parseStrToInt(msg, stateReceived, 8);
+	//printf("parsed data: S%d&%d&%d&%d&%d&%d&%d&%dE\n", stateReceived[0], stateReceived[1], stateReceived[2], stateReceived[3], stateReceived[4], stateReceived[5], stateReceived[6], stateReceived[7]);
 	int result = write(pipefd[1], stateReceived, (STATE_AMOUNT)*sizeof(int));
-	printf("%d byte write to pipe", result);
+//	printf("%d byte write to pipe", result);
 }
 
 /**

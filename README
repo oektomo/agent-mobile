@@ -1,0 +1,9 @@
+20161104
+variable read from config file, like target and initposition. flushSerial improving data integrity. Simple consensus implemented. readSocket() return -1 if socket are closed.
+
+to add feature: debugging from config file or from argument "-D"
+creating a safety feature if config file doesn't exist
+
+Add feature to print or not to print error rate?
+
+save control input and PWM, sensor data reading, 

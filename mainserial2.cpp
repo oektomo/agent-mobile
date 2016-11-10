@@ -124,7 +124,7 @@ int main(int argc, char* argv[])
 		}
 	}
 	}
-	// default no appropriate argument feed to program
+	// default, if no appropriate argument feed to program
 	if(!pflag)
 		serialPortfd = open_port(serialPortdefault);
 	if(!cflag)
@@ -137,7 +137,7 @@ int main(int argc, char* argv[])
 			printf("config.cfg not found or can't be open\n");
 			return(EXIT_FAILURE);
 		}
-// get data from config file
+// get data from config file still unsafe
 	const char *agentNumber=NULL;
 	config_lookup_string(cf, "agent_num", &agentNumber);
 	int agentNum = atoi(agentNumber);
@@ -155,32 +155,40 @@ int main(int argc, char* argv[])
 	config_lookup_string(cf, "posY", &posY);
 	double posYdouble = atof((char*) posY);
 	printf("agent num: %d position[%f, %f]\n", agentNum, posXdouble, posYdouble);
+	
+	const char *targetX=NULL;
+	config_lookup_string(cf, "targetX", &targetX);
+	double targetXdouble = atof((char*) targetX);
+	const char *targetY=NULL;
+	config_lookup_string(cf, "targetY", &targetY);
+	double targetYdouble = atof((char*) targetY);
 //  preparation for NETWORK and create server if it's ok with config.cfg
 	int serverfd = 0, connfd = 0;
+	double data[4];
+	double Rdata[2];
 	if(serverBool) {
 		serverfd = create_server();
 		printf("server created with %d fd, waiting to accept client\n", serverfd);
 		connfd = accept(serverfd, (struct sockaddr*) NULL, NULL);
 		printf("a client connect with %d file descriptor\n", connfd);
 
-		double data[4];
+		/*
 		data[0] = atof(argv[1]);
 		data[1] = data[0]*20;
 		data[2] = data[0]*3;
 		data[3] = data[0]*4;
 		sleep(1);
 		printf("sent data %f\n",data[0]);
-		double Rdata[2];
 		while(1) {
 			sentData(connfd, data, 32);
 			readSocket(connfd, Rdata, 33);
 			printf("readSocket() done, %f %f\n", Rdata[0], Rdata[1]);
 		}
+		*/
 	} else { // this is as client
 		connfd = create_client((char *)ipServer);
 		printf("client connect with %d file descriptor\n", connfd);
-		double Rdata[2];
-		double data[4];
+		/*
 		data[0] = 3.12145;
 		data[1] = data[0]*20;
 		data[2] = data[0]*3;
@@ -190,9 +198,9 @@ int main(int argc, char* argv[])
 			readSocket(connfd, Rdata, 33);
 			printf("readSocket() done, %f %f %f %f\n", Rdata[0], Rdata[1], Rdata[2], Rdata[3]);
 		}
-
+		*/
 	}
-	while(1);
+	//while(1);
 		
 // preparation FORKING CHILD FOR SERIAL COMM
 	char sentstring[20];// write buffer to serialport
@@ -210,9 +218,12 @@ int main(int argc, char* argv[])
 	if(read_process == 0) {
 /************** CHILD process for receiving data from serial		 */
 		printf("this is child, blocking output from child\n");
-		blockPrintf();
+		//blockPrintf();
 
 		if(close(pipefd[0]) == -1) printf("failed to close read end\n");
+		sleep(2);
+		tcflush(serialPortfd, TCIOFLUSH);
+
 		while(1) {
 			printf("waiting readparseChar()\n");
 			readparseChar(serialPortfd, pipefd); 
@@ -246,11 +257,11 @@ int main(int argc, char* argv[])
 	sign[L] = 0; sign[R] = 0;
 	double kv = 8, kf = 50;
 	double position[3], positionKMin1[3];
-	position[X] = 0;
-	position[Y] = 0;
+	position[X] = posXdouble;
+	position[Y] = posYdouble;
 	position[2] = 0;
-	targetPosition[0] = 80;
-	targetPosition[1] = 40;
+	targetPosition[0] = targetXdouble;
+	targetPosition[1] = targetYdouble;
 	obstacle1[X] = 30;
 	obstacle1[Y] = 0;
 	controlInput[0] = 12;
@@ -296,7 +307,8 @@ int main(int argc, char* argv[])
 		for(int repeat=0; repeat<1; repeat++) {
 			result = read(pipefd[0], stateReceived, STATE_AMOUNT*sizeof(int));
 			if(result > 0) {
-				printf("%d stateReceived: %d %d %d %d \n", result, stateReceived[0], stateReceived[1], stateReceived[2], stateReceived[3]);
+				//printf("%d byteReceived: %d %d %d %d \n", result, stateReceived[0], stateReceived[1], stateReceived[2], stateReceived[6], stateReceived[7]);
+				printf("rec_data: S%d&%d&%d&%d&%d&%d&%d&%dE\n", stateReceived[0], stateReceived[1], stateReceived[2], stateReceived[3], stateReceived[4], stateReceived[5], stateReceived[6], stateReceived[7]);
 			// get wheelEncoder counter and calculate position
 				int wheelenc[2];
 				wheelenc[L] = sign[L] * stateReceived[1];
@@ -348,24 +360,25 @@ int main(int argc, char* argv[])
 
 				Vx = delta_x / stateReceived[0] * 1000; // dx/dt
 				Vy = delta_y / stateReceived[0] * 1000; // dy/dt
-/*
-				write(connfd, 'S', sizeof(char)); 
-				write(connfd, Vx, sizeof(double)); 
-				write(connfd, '&', sizeof(char)); 
-				write(connfd, Vy, sizeof(double)); 
-				write(connfd, 'E', sizeof(char));
-				sockRead = read(connfd, recvBuff, sizeof(recvBuff)-1);
+// data communication and consensus algorithm
+				data[0] = position[X];
+				data[1] = position[Y];
+				data[2] = Vx;
+				data[3] = Vy;
+				sentData(connfd, data,32);
+				int tempstatus = readSocket(connfd, Rdata, 33);
+				if(tempstatus < 0) quit = 1;
+				printf(ANSI_COLOR_YELLOW"peer data: %f %f %f %f\n"ANSI_COLOR_RESET, Rdata[0], Rdata[1], Rdata[2], Rdata[3]);
+				double vcx = Rdata[2] - Vx;
+				double vcy = Rdata[3] - Vy;
 
-				double Pjx = 
-				Pjy = 
-*/
 				//controlInput[X] = - kv * Vx - kf*Ax;
 				//controlInput[Y] = - kv * Vy - kf*Ay;
-				controlInput[X] = - kf*Ax;// + Pjx;
-				controlInput[Y] = - kf*Ay;// + Pjy;
+				controlInput[X] = - kf*Ax + vcx;
+				controlInput[Y] = - kf*Ay + vcy;
 
 // END OF CONTROL ALGORITHM
-				fprintf(filestate,"%f %f %f %d %d %d %d %f %f %f %f\n\r", position[X], position[Y], position[2], wheelenc[L], wheelenc[R], control[L], control[R], Ax, Ay, obsFunc0, NowJ);
+				fprintf(filestate,"%f %f %f %d %d %d %d %f %f %f %f %d %d %d\n\r", position[X], position[Y], position[2], wheelenc[L], wheelenc[R], control[L], control[R], Ax, Ay, obsFunc0, NowJ, stateReceived[0], stateReceived[1], stateReceived[2]);
 				printf("%f %f %f %f %f %d\n\r", 
 					position[X], position[Y], position[2], 
 					Vx, Vy, stateReceived[0]);

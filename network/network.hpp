@@ -17,7 +17,7 @@ int create_server();
 int create_client( char* address );
 
 void sentData(int sockfd, double* fData, int size);
-void readSocket(int sockfd, double* fData, int size);
+int readSocket(int sockfd, double* fData, int size);
 
 
 

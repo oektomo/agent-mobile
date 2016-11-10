@@ -134,7 +134,7 @@ void sentData(int sockfd, double* fData, int size)
 	//dataF[17] = 'E';
 	dataF[STATE_SENT+1] = 'E';
 	dataF[STATE_SENT+2] = '\0';
-	printf("raw data %s \n",dataF);
+	//printf("raw data %s \n",dataF);
 	write(sockfd, dataF, STATE_SENT+2);
 }
 
@@ -142,7 +142,7 @@ void sentData(int sockfd, double* fData, int size)
 * generic read from socket
 * blocking while socket open
 */
-void readSocket(int sockfd, double* fData, int size)
+int readSocket(int sockfd, double* fData, int size)
 {
 	ssize_t readed;
 	char readchar[2];
@@ -163,12 +163,12 @@ void readSocket(int sockfd, double* fData, int size)
 
 	if( (cekE > 0)&&(rec_data >= (STATE_SENT+2)) ) {
 		cekS = 0; cekE = 0;
-		printf("readed %d char\n",rec_data);
+		//printf("readed %d char\n",rec_data);
 		recvBuff[rec_data]='\0';
 		rec_data = 0;
 		memcpy(fData, recvBuff+1, STATE_SENT);
-		printf("raw data %s \n",recvBuff);
-		printf("data, %f & %f\n", fData[0], fData[1]);
+		//printf("raw data %s \n",recvBuff);
+		//printf("data, %f & %f\n", fData[0], fData[1]);
 		memset(recvBuff, 0, 34);
 		break;
 	}
@@ -176,7 +176,9 @@ void readSocket(int sockfd, double* fData, int size)
 
     if(readed < 0) {
         printf("\n Read error \n");
+	return (-1);
     } 
+    return (1);
 
 }
 
