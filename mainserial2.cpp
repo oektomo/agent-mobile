@@ -30,6 +30,8 @@
 #define ANSI_COLOR_RED	"\x1b[31m"
 #define ANSI_COLOR_RESET "\x1b[0m"
 
+#define SINGLE_CONSENSUS
+
 int main(int argc, char* argv[])
 {
 // TODO: use library to parse argument, refining......
@@ -162,6 +164,7 @@ int main(int argc, char* argv[])
 	const char *targetY=NULL;
 	config_lookup_string(cf, "targetY", &targetY);
 	double targetYdouble = atof((char*) targetY);
+#ifndef SINGLE_CONSENSUS
 //  preparation for NETWORK and create server if it's ok with config.cfg
 	int serverfd = 0, connfd = 0;
 	double data[4];
@@ -200,7 +203,7 @@ int main(int argc, char* argv[])
 		}
 		*/
 	}
-	//while(1);
+#endif // #ifndef SINGLE_CONSENSUS
 		
 // preparation FORKING CHILD FOR SERIAL COMM
 	char sentstring[20];// write buffer to serialport
@@ -218,7 +221,7 @@ int main(int argc, char* argv[])
 	if(read_process == 0) {
 /************** CHILD process for receiving data from serial		 */
 		printf("this is child, blocking output from child\n");
-		//blockPrintf();
+		blockPrintf();
 
 		if(close(pipefd[0]) == -1) printf("failed to close read end\n");
 		sleep(2);
@@ -246,8 +249,8 @@ int main(int argc, char* argv[])
 	fclose(filestate);
 	if(close(pipefd[1]) == -1) printf("failed to close write end\n");
 // INITIAL CONDITIon
-	double targetPosition[2], obstacle1[2], obsRad = 5; // position
-	double rObstacle1 = 5;
+	double targetPosition[2], obstacle1[2]; // position
+	double rObstacle1 = 10, rAgent = 23;
 	double controlInput[2], controlInputWheel[2]; // variable for state
 	//int signL = 0, signR = 0;
 	int sign[2], wheelInput[2], control[2];
@@ -255,7 +258,7 @@ int main(int argc, char* argv[])
 	double Vx, Vy;
 	double attractiveControl[2], obsFunc0, goalFunc0, NowJ, delta_x, delta_y, deltaJx, deltaJy, Ax, Ay;
 	sign[L] = 0; sign[R] = 0;
-	double kv = 8, kf = 50;
+	double kv = 8, kf = 25, Kr = 3;
 	double position[3], positionKMin1[3];
 	position[X] = posXdouble;
 	position[Y] = posYdouble;
@@ -288,110 +291,148 @@ int main(int argc, char* argv[])
 			/* Escape key pressed */
 			if(key == 27) {
 				quit = 1;
-				fprintf(filestate,"\n\n");
-				fclose(filestate);
-				break;
+				break; // quiting from while(n != EOF) 
 			}
 			n = getchar();
 		}
-		// convert from float to string
-		// convert from position to wheel using invert of SE2 matrix
-		speed2wheel(controlInput, position[2], controlInputWheel);
-		saturateKeepVector(controlInputWheel, control, sign, 255);
 
-		snprintf(sentstring, sizeof(sentstring), "S%d&%dE", control[L], control[R]);
-		int sizeSent = strlen(sentstring);
 		int stateReceived[STATE_AMOUNT];
 		result=1;
 		printf(ANSI_COLOR_YELLOW "[INFO] waiting for state received\n" ANSI_COLOR_RESET);
-		for(int repeat=0; repeat<1; repeat++) {
-			result = read(pipefd[0], stateReceived, STATE_AMOUNT*sizeof(int));
-			if(result > 0) {
-				//printf("%d byteReceived: %d %d %d %d \n", result, stateReceived[0], stateReceived[1], stateReceived[2], stateReceived[6], stateReceived[7]);
-				printf("rec_data: S%d&%d&%d&%d&%d&%d&%d&%dE\n", stateReceived[0], stateReceived[1], stateReceived[2], stateReceived[3], stateReceived[4], stateReceived[5], stateReceived[6], stateReceived[7]);
-			// get wheelEncoder counter and calculate position
-				int wheelenc[2];
-				wheelenc[L] = sign[L] * stateReceived[1];
-				wheelenc[R] = sign[R] * stateReceived[2];
-				wheel2position(wheelenc, position);
+		
+		result = read(pipefd[0], stateReceived, STATE_AMOUNT*sizeof(int));
+		if(result > 0) {
+			//printf("%d byteReceived: %d %d %d %d \n", result, stateReceived[0], stateReceived[1], stateReceived[2], stateReceived[6], stateReceived[7]);
+			//printf("rec_data: S%d&%d&%d&%d&%d&%d&%d&%dE\n", stateReceived[0], stateReceived[1], stateReceived[2], stateReceived[3], stateReceived[4], stateReceived[5], stateReceived[6], stateReceived[7]);
+		// get wheelEncoder counter and calculate position
+			int wheelenc[2];
+			wheelenc[L] = sign[L] * stateReceived[1];
+			wheelenc[R] = sign[R] * stateReceived[2];
+			wheel2position(wheelenc, position);
 
-				position[2] = getHeading(compassfd);
-				if(position[2]<initAngle) {position[2] = 2*M_PI - (initAngle-position[2]);}
-				else {position[2] = position[2] - initAngle;}
-				if(position[2] < M_PI)
-					position[2] = -position[2];
-				if(position[2] > M_PI)
-					position[2] = (2*M_PI) - position[2];
+			// compass
+			position[2] = getHeading(compassfd);
+			if(position[2]<initAngle) {position[2] = 2*M_PI - (initAngle-position[2]);}
+			else {position[2] = position[2] - initAngle;}
+			if(position[2] < M_PI)
+				position[2] = -position[2];
+			if(position[2] > M_PI)
+				position[2] = (2*M_PI) - position[2];
 
 // CONTROL ALGORITHM
-				attractiveControl[X] = -(position[X] - targetPosition[X]);
-				attractiveControl[Y] = -(position[Y] - targetPosition[Y]);
-				//controlInput[X] = -(position[X] - targetPosition[X]);
-				//controlInput[Y] = -(position[Y] - targetPosition[Y]);
-				
-				//function O=obstaclefunction(x,w1)
-				//O= w1 * (exp(-0.1 * ((x(1,1)-20)^2 + (x(2,1)-20)^2)));
-				obsFunc0 = W1 * exp( -0.1 * (pow((position[X] - obstacle1[X]),2) + pow((position[Y] - obstacle1[Y]),2))/obsRad);
-				goalFunc0 = (pow(attractiveControl[X],2) + pow(attractiveControl[Y],2) ) * W2;
-				NowJ = obsFunc0 + goalFunc0;
-				//NowJ = goalFunc0;
+//#define SIMPLE_ALGORITHM
+#ifndef SIMPLE_ALGORITHM
+			attractiveControl[X] = -(position[X] - targetPosition[X]);
+			attractiveControl[Y] = -(position[Y] - targetPosition[Y]);
+#endif
+			
+			//function O=obstaclefunction(x,w1)
+			//O= w1 * (exp(-0.1 * ((x(1,1)-20)^2 + (x(2,1)-20)^2)));
+			goalFunc0 = (pow(attractiveControl[X],2) + pow(attractiveControl[Y],2) ) * W2;
+#define OBSTACLE
+#ifdef OBSTACLE
+			obsFunc0 = W1 * exp( -0.1 * (pow((position[X] - obstacle1[X]),2) + pow((position[Y] - obstacle1[Y]),2))/rObstacle1);
+			NowJ = obsFunc0 + goalFunc0;
+#else
+			NowJ = goalFunc0;
+#endif // #ifdef OBSTACLE
 
-				delta_x = position[X] - positionKMin1[X];
-				delta_y = position[Y] - positionKMin1[Y];
-				positionKMin1[X] = position[X];
-				positionKMin1[Y] = position[Y];
-				if(delta_x == 0.0) delta_x = 0.01;
-				if(delta_y == 0.0) delta_y = 0.01;
-
-				// with obstacle
-				deltaJx = (pow((position[X]-targetPosition[X]+delta_x), 2) + pow((position[Y] - targetPosition[Y]), 2) ) * W2 +
-				 W1 * exp( -0.1 * (pow((position[X] - obstacle1[X] + delta_x), 2) + pow((position[Y] - obstacle1[Y]), 2))) - NowJ;
-				deltaJy = (pow((position[X]-targetPosition[X]), 2) + pow((position[Y] - targetPosition[Y] + delta_y), 2) ) * W2 +
-				 W1 * exp( -0.1 * (pow((position[X] - obstacle1[X]), 2) + pow((position[Y] - obstacle1[Y] + delta_y), 2))) - NowJ;
-/*
-				// without obstacle
-				deltaJx = (pow((position[X]-targetPosition[X]+delta_x), 2) + pow((position[Y] - targetPosition[Y]), 2) ) * W2 +
-				 W1 * exp( -0.1 * (pow((position[X] + delta_x), 2) + pow((position[Y]), 2))) - NowJ;
-				deltaJy = (pow((position[X]-targetPosition[X]), 2) + pow((position[Y] - targetPosition[Y] + delta_y), 2) ) * W2 +
-				 W1 * exp( -0.1 * (pow((position[X]), 2) + pow((position[Y] + delta_y), 2))) - NowJ;
-*/
-				Ax = deltaJx / delta_x;
-				Ay = deltaJy / delta_y;
-
-				Vx = delta_x / stateReceived[0] * 1000; // dx/dt
-				Vy = delta_y / stateReceived[0] * 1000; // dy/dt
+			delta_x = position[X] - positionKMin1[X];
+			delta_y = position[Y] - positionKMin1[Y];
+			positionKMin1[X] = position[X];
+			positionKMin1[Y] = position[Y];
+			// first_time initial so delta_x != 0
+			if(delta_x == 0.0) delta_x = 0.01;
+			if(delta_y == 0.0) delta_y = 0.01;
+			Vx = delta_x / stateReceived[0] * 1000; // dx/dt
+			Vy = delta_y / stateReceived[0] * 1000; // dy/dt
+#ifndef SINGLE_CONSENSUS
 // data communication and consensus algorithm
-				data[0] = position[X];
-				data[1] = position[Y];
-				data[2] = Vx;
-				data[3] = Vy;
-				sentData(connfd, data,32);
-				int tempstatus = readSocket(connfd, Rdata, 33);
-				if(tempstatus < 0) quit = 1;
-				printf(ANSI_COLOR_YELLOW"peer data: %f %f %f %f\n"ANSI_COLOR_RESET, Rdata[0], Rdata[1], Rdata[2], Rdata[3]);
-				double vcx = Rdata[2] - Vx;
-				double vcy = Rdata[3] - Vy;
+			data[X] = position[X];
+			data[Y] = position[Y];
+			data[2] = Vx;
+			data[3] = Vy;
+			sentData(connfd, data,32);
+			int tempstatus = readSocket(connfd, Rdata, 33);
+			if(tempstatus < 0) quit = 1;
+			printf(ANSI_COLOR_YELLOW"peer data: %f %f %f %f\n"ANSI_COLOR_RESET, Rdata[X], Rdata[Y], Rdata[2], Rdata[3]);
+			double vcx = Rdata[2] - Vx;
+			double vcy = Rdata[3] - Vy;
+// end of data communication and consensus algorithm
+#endif //#ifndef SINGLE_CONSENSUS
+#ifdef REPEL
+			double jarakAgentKuadrat = (position[X]-Rdata[X])*(position[X]-Rdata[X]) + (position[Y]-Rdata[Y])*(position[Y]-Rdata[Y]);
+			double xrepel = Kr * exp(-jarakAgentKuadrat/rAgent) * (position[X]-Rdata[X]);
+			double yrepel = Kr * exp(-jarakAgentKuadrat/rAgent) * (position[Y]-Rdata[Y]);
+#endif // #ifdef REPEL
+#ifdef CENTROID
 
-				//controlInput[X] = - kv * Vx - kf*Ax;
-				//controlInput[Y] = - kv * Vy - kf*Ay;
-				controlInput[X] = - kf*Ax + vcx;
-				controlInput[Y] = - kf*Ay + vcy;
 
+#endif // #ifdef CENTROID
+
+#ifdef OBSTACLE
+			// with obstacle
+			deltaJx = (pow((position[X]-targetPosition[X]+delta_x), 2) + pow((position[Y] - targetPosition[Y]), 2) ) * W2
+				 + W1 * exp( -0.1 * (pow((position[X] - obstacle1[X] + delta_x), 2) + pow((position[Y] - obstacle1[Y]), 2))) 
+- NowJ;
+			deltaJy = (pow((position[X]-targetPosition[X]), 2) + pow((position[Y] - targetPosition[Y] + delta_y), 2) ) * W2
+				 + W1 * exp( -0.1 * (pow((position[X] - obstacle1[X]), 2) + pow((position[Y] - obstacle1[Y] + delta_y), 2))) 
+- NowJ;
+#else
+
+			// without obstacle
+			deltaJx = (pow((position[X]-targetPosition[X]+delta_x), 2) + pow((position[Y] - targetPosition[Y]), 2) ) * W2 
+//			 + W1 * exp( -0.1 * (pow((position[X] + delta_x), 2) + pow((position[Y]), 2))) 
+			 - NowJ;
+			deltaJy = (pow((position[X]-targetPosition[X]), 2) + pow((position[Y] - targetPosition[Y] + delta_y), 2) ) * W2 
+//			 + W1 * exp( -0.1 * (pow((position[X]), 2) + pow((position[Y] + delta_y), 2))) 
+			 - NowJ;
+
+#endif
+			Ax = deltaJx / delta_x;
+			Ay = deltaJy / delta_y;
+
+			//controlInput[X] = - kv * Vx - kf*Ax;
+			//controlInput[Y] = - kv * Vy - kf*Ay;
+#ifdef SINGLE_CONSENSUS
+			controlInput[X] = - kf * Ax ;
+			controlInput[Y] = - kf * Ay ;
+#else
+			controlInput[X] = - kf*Ax + vcx;
+			controlInput[Y] = - kf*Ay + vcy;
+#endif //#ifdef SINGLE_CONSENSUS
+#ifdef SIMPLE_ALGORITHM
+			controlInput[X] = -3* (position[X] - targetPosition[X]);
+			controlInput[Y] = -3* (position[Y] - targetPosition[Y]);
+#endif
 // END OF CONTROL ALGORITHM
-				fprintf(filestate,"%f %f %f %d %d %d %d %f %f %f %f %d %d %d\n\r", position[X], position[Y], position[2], wheelenc[L], wheelenc[R], control[L], control[R], Ax, Ay, obsFunc0, NowJ, stateReceived[0], stateReceived[1], stateReceived[2]);
-				printf("%f %f %f %f %f %d\n\r", 
-					position[X], position[Y], position[2], 
-					Vx, Vy, stateReceived[0]);
-				result = result / sizeof(int); 
-			} else {
-				printf("pipe no reading\n");
-				break;
-			}
+			fprintf(filestate,"%f %f %f %d %d %d %d %f %f %f %f %d %d %d\n\r", position[X], position[Y], position[2], wheelenc[L], wheelenc[R], control[L], control[R], Ax, Ay, obsFunc0, NowJ, stateReceived[0], stateReceived[1], stateReceived[2]);
+			printf("%d %f %f %f %f %f %f %f %f %f\n\r", 
+				stateReceived[0], position[X], position[Y], position[2], 
+				delta_x, delta_y, controlInput[X], controlInput[Y], deltaJx, deltaJy
+				);
+			result = result / sizeof(int); 
+		} else {
+			printf("pipe no reading\n");
+			break;
 		}
+	
+		// convert from float to string
+		// convert from position to wheel using invert of SE2 matrix
+		speed2wheel(controlInput, position[2], controlInputWheel);
+		printf("%f %f ", controlInputWheel[L], controlInputWheel[R] );
+		saturateKeepVector(controlInputWheel, control, sign, 255);
+		printf("%d %d\n", control[L], control[R]);
+
+		snprintf(sentstring, sizeof(sentstring), "S%d&%dE", control[L], control[R]);
+		int sizeSent = strlen(sentstring);
 		write_port(serialPortfd, sentstring, sizeSent+1);
 	}
 	snprintf(sentstring, sizeof(sentstring), "S%d&%dE", 0, 0);
 	write_port(serialPortfd, sentstring, 6);
+	write_port(serialPortfd, sentstring, 6);
+	fprintf(filestate,"\n\n");
+	fclose(filestate);
 	// reset Terminal setting
 	tcsetattr(0, TCSANOW, &initial_settings);
 }

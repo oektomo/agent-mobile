@@ -10,6 +10,7 @@
  * @bug		don't know yet
  */
 #include <math.h>
+#include <stdio.h>
 
 #include "dynamicwhell.hpp"
 
@@ -70,22 +71,34 @@ void saturateKeepVector(double* src, int* dst, int* sign, int saturationValue)
 //	src[R] = src[R]*SCALE_P;
 //	src[L] = src[L]+ADD_P;
 //	src[R] = src[R]+ADD_P;
-	sign[L] = (src[L] > 0) ? 1 : ((src[L] < 0) ? -1 : 0);
-	sign[R] = (src[R] > 0) ? 1 : ((src[R] < 0) ? -1 : 0);
+	dst[L] = src[L];
+	dst[R] = src[R];
+	sign[L] = (dst[L] > 0) ? 1 : ((dst[L] < 0) ? -1 : 0);
+	sign[R] = (dst[R] > 0) ? 1 : ((dst[R] < 0) ? -1 : 0);
 	src[L] = fabs(src[L]);
 	src[R] = fabs(src[R]);
 	src[L] = src[L] + ADD_P;
 	src[R] = src[R] + ADD_P;
 	if(src[L] < src[R]) {
+		if(src[R] > saturationValue) {
 		// abs(src[L]) < abs(src[R])
 		src[L] = saturationValue*src[L]/src[R];
 		dst[L] = sign[L]*src[L];
 		dst[R] = sign[R]*saturationValue;
+		} else {
+		dst[L] = sign[L]*src[L];
+		dst[R] = sign[R]*src[R];
+		}
 	} else {
+		if(src[L] > saturationValue) {
 		// abs(src[R]) < abs(src[L])
 		src[R] = saturationValue*src[R]/src[L];
 		dst[R] = sign[R]*src[R];
 		dst[L] = sign[L]*saturationValue;
+		} else {
+		dst[L] = sign[L]*src[L];
+		dst[R] = sign[R]*src[R];
+		}
 	}
 }
 
@@ -167,3 +180,4 @@ void wheel2position(int* wheelenc, double* position)
 	position[Y] = deltaPosition[Y]/2 + position[Y];
 	position[2] = deltaPosition[2] + position[2];
 }
+

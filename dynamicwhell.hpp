@@ -8,15 +8,18 @@
 #ifndef DYNAMICWHELL_HPP_
 #define DYNAMICWHELL_HPP_
 
-#define WHEEL_RAD 3.39
-#define RWIDE	14.5
-#define WHEEL_STEP_COEF	2.13
+//#define WHEEL_RAD 3.39
+#define WHEEL_RAD 2.0
+//#define RWIDE	14.5
+#define RWIDE	11.8
+//#define WHEEL_STEP_COEF	2.13 // 4wd rover
+#define WHEEL_STEP_COEF 7.0		// miniQ
 #define R		0
 #define L		1
 #define X		0
 #define Y		1
 #define SCALE_P 15
-#define ADD_P 70
+#define ADD_P 30
 void speed2wheel(double* speed, double theta, double* wheel);
 void wheel2position(int* wheelenc, double* position);
 int saturate(int *dataToSaturate, int saturationValue);
