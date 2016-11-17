@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <libconfig.h>
 
+#include "agentconfig.h"
+
 #define EXIT_FAILURE -1
 #define ANSI_COLOR_YELLOW "\x1b[33m"
 #define ANSI_COLOR_GREEN	"\x1b[32m"
@@ -39,6 +41,9 @@ int main(int argc, char **argv)
 	if(config_lookup_string(cf, "ipAgent1", &ipAgent1))
 		printf("IP Agent 1 = %s\n", ipAgent1);
 
+	int8_t A_array[25];
+	read2DimArray(cf, A_array, "Adjacency");
+#ifdef AGENTCONFIG
 // reading 2 dimension array.
 	const config_setting_t *A_mat, *A_matRow, *A_element;
 	const config_setting_t *A_mat2, *A_matRow2;
@@ -62,12 +67,17 @@ int main(int argc, char **argv)
 		}
 	    printf("\n");
 	}
+#endif
+	int A_col = 4, A_row = 5;
 	printf(ANSI_COLOR_YELLOW "[INFO] closing configuration file\n" ANSI_COLOR_RESET);
 	config_destroy(cf);
 	printf("printing matrix\n");
 	for(int introw=0; introw<A_row; introw++) {
 		for(int intcol=0; intcol<A_col; intcol++) {
+#ifdef AGENTCONFIG
 			printf("%d ",A_array[introw][intcol]);
+#endif
+			printf("%d ",A_array[introw*4 + intcol]);
 		}
 		printf("\n");
 	}

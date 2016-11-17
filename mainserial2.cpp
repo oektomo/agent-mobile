@@ -30,7 +30,7 @@
 #define ANSI_COLOR_RED	"\x1b[31m"
 #define ANSI_COLOR_RESET "\x1b[0m"
 
-#define SINGLE_CONSENSUS
+//#define SINGLE_CONSENSUS
 
 int main(int argc, char* argv[])
 {
@@ -146,9 +146,23 @@ int main(int argc, char* argv[])
 	const char *confNumber=NULL;
 	config_lookup_string(cf, "server", &confNumber);
 	int serverBool = atoi(confNumber);
-	const char *ipServer=NULL;
-	config_lookup_string(cf, "serverIp", &ipServer);
-	char *ipServerChar;
+	
+	const char *ipAgent1=NULL;
+	if( config_lookup_string(cf, "ipAgent1", &ipAgent1) )
+		printf("IP Agent1 %s/n", ipAgent1);
+	else printf("IP Agent1 not available/n");
+	const char *ipAgent2=NULL;
+	if( config_lookup_string(cf, "ipAgent2", &ipAgent2) )
+		printf("IP Agent2 %s/n", ipAgent2);
+	else printf("IP Agent2 not available/n");
+	const char *ipAgent3=NULL;
+	if( config_lookup_string(cf, "ipAgent3", &ipAgent3) )
+		printf("IP Agent2 %s/n", ipAgent2);
+	else printf("IP Agent2 not available/n");
+	const char *ipAgent4=NULL;
+	if( config_lookup_string(cf, "ipAgent4", &ipAgent4) )
+		printf("IP Agent2 %s/n", ipAgent2);
+	else printf("IP Agent2 not available/n");
 
 	const char *posX=NULL;
 	config_lookup_string(cf, "posX", &posX);

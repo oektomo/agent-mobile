@@ -13,7 +13,8 @@
 //#define RWIDE	14.5
 #define RWIDE	11.8
 //#define WHEEL_STEP_COEF	2.13 // 4wd rover
-#define WHEEL_STEP_COEF 7.0		// miniQ
+//#define WHEEL_STEP_COEF 7.0		// miniQ Agent4
+#define WHEEL_STEP_COEF 2.0		// miniQ Agent2
 #define R		0
 #define L		1
 #define X		0
