@@ -206,6 +206,8 @@ int main(int argc, char* argv[])
 // creating network connection listed from array
 //  preparation for NETWORK and create server if it's ok with config.cfg
 	int serverfd = 0, connfd = 0;
+	double data[4];
+	double Rdata[2];
 	int connfdAgentJ[arrayContainer.A_row];
 	printf("arrayContainer.A_row = %d\n", arrayContainer.A_row);
 	for(int agentJ = 0; agentJ < arrayContainer.A_row; agentJ++) {
@@ -246,7 +248,6 @@ int main(int argc, char* argv[])
 	}
 
 	printf("connection establish between agent\n");
-	while(1);
 
 #endif // #ifdef ARRAY_CONSENSUS
 		
@@ -301,16 +302,16 @@ int main(int argc, char* argv[])
 	int sign[2], wheelInput[2], control[2];
 	// temporary variable for ALGORITHM calculation
 	double Vx, Vy;
-	double attractiveControl[2], obsFunc0, goalFunc0, NowJ, delta_x, delta_y, deltaJx, deltaJy, Ax, Ay;
+	double attractiveControl[2], obsFunc0 = 0, goalFunc0, NowJ, delta_x, delta_y, deltaJx, deltaJy, Ax, Ay;
 	sign[L] = 0; sign[R] = 0;
-	double kv = 8, kf = 25, Kr = 3;
+	double kv = 8, kf = 25, Kr = 10;
 	double position[3], positionKMin1[3];
 	position[X] = posXdouble;
 	position[Y] = posYdouble;
 	position[2] = 0;
 	targetPosition[0] = targetXdouble;
 	targetPosition[1] = targetYdouble;
-	obstacle1[X] = 30;
+	obstacle1[X] = 80;
 	obstacle1[Y] = 0;
 	controlInput[0] = 12;
 	controlInput[1] = 0;
@@ -374,14 +375,14 @@ int main(int argc, char* argv[])
 			//function O=obstaclefunction(x,w1)
 			//O= w1 * (exp(-0.1 * ((x(1,1)-20)^2 + (x(2,1)-20)^2)));
 			goalFunc0 = (pow(attractiveControl[X],2) + pow(attractiveControl[Y],2) ) * W2;
-#define OBSTACLE
+//#define OBSTACLE
 #ifdef OBSTACLE
 			obsFunc0 = W1 * exp( -0.1 * (pow((position[X] - obstacle1[X]),2) + pow((position[Y] - obstacle1[Y]),2))/rObstacle1);
 			NowJ = obsFunc0 + goalFunc0;
 #else
 			NowJ = goalFunc0;
 #endif // #ifdef OBSTACLE
-
+// for compute self state
 			delta_x = position[X] - positionKMin1[X];
 			delta_y = position[Y] - positionKMin1[Y];
 			positionKMin1[X] = position[X];
@@ -404,7 +405,58 @@ int main(int argc, char* argv[])
 			double vcx = Rdata[2] - Vx;
 			double vcy = Rdata[3] - Vy;
 // end of data communication and consensus algorithm
-#endif //#ifndef SINGLE_CONSENSUS
+#endif //#ifdef CONSENSUS_OLD
+
+#ifdef ARRAY_CONSENSUS
+// send data to every agent
+	data[X] = position[X];
+	data[Y] = position[Y];
+	data[2] = Vx;
+	data[3] = Vy;
+	double stateAgentJ[STATE_NET* arrayContainer.A_row];
+	printf("arrayContainer.A_row = %d\n", arrayContainer.A_row);
+	for(int agentJ = 0; agentJ < arrayContainer.A_row; agentJ++) {
+		if( arrayContainer.Array[(agentNum-1) *4+agentJ] == 2 ) { // server
+			sentData(connfdAgentJ[agentJ], data, 32);
+		} else if( arrayContainer.Array[(agentNum-1) *4+agentJ] == 1 ) { // client
+			sentData(connfdAgentJ[agentJ], data, 32);
+		}
+	}
+
+// read data from agentJ
+	for(int agentJ = 0; agentJ < arrayContainer.A_row; agentJ++) {
+		if( arrayContainer.Array[(agentNum-1) *4+agentJ] == 2 ) { // server
+			int tempstatus = readSocket(connfdAgentJ[agentJ], Rdata, 33);
+		} else if( arrayContainer.Array[(agentNum-1) *4+agentJ] == 1 ) { // client
+			int tempstatus = readSocket(connfdAgentJ[agentJ], Rdata, 33);
+		}
+		// copy from Rdata to stateAgentJ
+		for (int stateJ = 0; stateJ < STATE_NET; stateJ++) {
+			stateAgentJ[agentJ*4 +stateJ] = Rdata[stateJ];
+		}
+	}
+
+// compute consensus data from agentJ
+	double jarakAgentKuadrat = 0, xrepel = 0, yrepel = 0, vcx = 0, vcy = 0, xcentroid = 0, ycentroid = 0;
+	for(int agentJ = 0; agentJ < arrayContainer.A_row; agentJ++) {
+		if( arrayContainer.Array[(agentNum-1) *4+agentJ] != 0 ) { 
+// REPEL
+		jarakAgentKuadrat = (position[X]-stateAgentJ[agentJ*STATE_NET +X])*(position[X]-stateAgentJ[agentJ*STATE_NET +X]) + (position[Y]-stateAgentJ[agentJ*STATE_NET +Y])*(position[Y]-stateAgentJ[agentJ*STATE_NET +Y]);
+		xrepel = xrepel + Kr * exp(-jarakAgentKuadrat/rAgent) * (position[X]-stateAgentJ[agentJ*STATE_NET +X]);
+		yrepel = yrepel + Kr * exp(-jarakAgentKuadrat/rAgent) * (position[Y]-stateAgentJ[agentJ*STATE_NET +Y]);
+// CONSENSUS_VELOCITY
+		vcx = vcx + stateAgentJ[agentJ*STATE_NET +2] - Vx;
+		vcy = vcy + stateAgentJ[agentJ*STATE_NET +3] - Vy;
+// CENTROID
+		xcentroid = xcentroid + stateAgentJ[agentJ*STATE_NET +X];
+		ycentroid = ycentroid + stateAgentJ[agentJ*STATE_NET +Y];
+		}
+	}
+
+	xcentroid = position[X] - (xcentroid + position[X]) / arrayContainer.A_row;
+	ycentroid = position[Y] - (ycentroid + position[Y]) / arrayContainer.A_row;
+
+#endif // #ifdef ARRAY_CONSENSUS
 
 #ifdef REPEL
 			double jarakAgentKuadrat = (position[X]-Rdata[X])*(position[X]-Rdata[X]) + (position[Y]-Rdata[Y])*(position[Y]-Rdata[Y]);
@@ -443,15 +495,22 @@ int main(int argc, char* argv[])
 #ifdef CONSENSUS_OLD
 			controlInput[X] = - kf*Ax + vcx;
 			controlInput[Y] = - kf*Ay + vcy;
-#else
+#endif //#ifdef CONSENSUS_OLD
+#ifdef NO_CONSENSUS_OLD
 			controlInput[X] = - kf * Ax ;
 			controlInput[Y] = - kf * Ay ;
-#endif //#ifdef CONSENSUS_OLD
+#endif
 
 #ifdef SIMPLE_ALGORITHM
 			controlInput[X] = -3* (position[X] - targetPosition[X]);
 			controlInput[Y] = -3* (position[Y] - targetPosition[Y]);
 #endif
+
+#ifdef ARRAY_CONSENSUS
+			controlInput[X] = - kf*Ax + vcx + xrepel - xcentroid;
+			controlInput[Y] = - kf*Ay + vcy + yrepel - ycentroid;
+
+#endif // #ifdef ARRAY_CONSENSUS
 // END OF CONTROL ALGORITHM
 			fprintf(filestate,"%f %f %f %d %d %d %d %f %f %f %f %d %d %d\n\r", position[X], position[Y], position[2], wheelenc[L], wheelenc[R], control[L], control[R], Ax, Ay, obsFunc0, NowJ, stateReceived[0], stateReceived[1], stateReceived[2]);
 			printf("%d %f %f %f %f %f %f %f %f %f\n\r", 

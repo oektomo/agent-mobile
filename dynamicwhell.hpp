@@ -20,7 +20,8 @@
 #define X		0
 #define Y		1
 #define SCALE_P 15
-#define ADD_P 30
+//#define ADD_P 30
+#define ADD_P 10
 void speed2wheel(double* speed, double theta, double* wheel);
 void wheel2position(int* wheelenc, double* position);
 int saturate(int *dataToSaturate, int saturationValue);

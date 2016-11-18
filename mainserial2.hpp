@@ -10,6 +10,7 @@
 
 #define BUFFER_SIZE 100
 #define STATE_AMOUNT 8
+#define STATE_NET 4
 
 #define W1 100
 #define W2 0.02
