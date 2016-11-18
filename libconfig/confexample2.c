@@ -42,7 +42,9 @@ int main(int argc, char **argv)
 		printf("IP Agent 1 = %s\n", ipAgent1);
 
 	int8_t A_array[25];
-	read2DimArray(cf, A_array, "Adjacency");
+	arraycontainTypedef arrayContainer;
+	arrayContainer.Array = A_array;
+	read2DimArray(cf, &arrayContainer, "Adjacency");
 #ifdef AGENTCONFIG
 // reading 2 dimension array.
 	const config_setting_t *A_mat, *A_matRow, *A_element;
@@ -68,18 +70,20 @@ int main(int argc, char **argv)
 	    printf("\n");
 	}
 #endif
-	int A_col = 4, A_row = 5;
+	int A_col = arrayContainer.A_col;
+	int A_row = arrayContainer.A_row;
 	printf(ANSI_COLOR_YELLOW "[INFO] closing configuration file\n" ANSI_COLOR_RESET);
 	config_destroy(cf);
 	printf("printing matrix\n");
+	printMatrix(&arrayContainer);
+#ifdef AGENTCONFIG
 	for(int introw=0; introw<A_row; introw++) {
 		for(int intcol=0; intcol<A_col; intcol++) {
-#ifdef AGENTCONFIG
 			printf("%d ",A_array[introw][intcol]);
-#endif
-			printf("%d ",A_array[introw*4 + intcol]);
+			printf("%d ",arrayContainer.Array[introw*4 + intcol]);
 		}
 		printf("\n");
 	}
+#endif
 	return 0;
 }

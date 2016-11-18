@@ -23,6 +23,7 @@
 #include "serial3.hpp"
 #include "iicsource/iic_hmc3_lib.h"
 #include "network/network.hpp"
+#include "libconfig/agentconfig.h"
 
 #define MESSAGESENT1 "S-100&-100E"
 #define ANSI_COLOR_YELLOW "\x1b[33m"
@@ -115,13 +116,13 @@ int main(int argc, char* argv[])
 		} else printf(ANSI_COLOR_GREEN "[INFO] serial port opened\n" ANSI_COLOR_RESET);
 	} else if (optopt == 'c') {
 		cflag = 1;
-		if(!config_read_file(cf, "config.txt")) {
+		if(!config_read_file(cf, "config.cfg")) {
 			fprintf(stderr, "%s:%d - %s\n",
 			 config_error_file(cf),
 			 config_error_line(cf),
 			 config_error_text(cf));
 			config_destroy(cf);
-			printf("config.txt not found or can't be open\n");
+			printf("config.cfg not found or can't be open\n");
 			return(EXIT_FAILURE);
 		}
 	}
@@ -136,33 +137,39 @@ int main(int argc, char* argv[])
 			 config_error_line(cf),
 			 config_error_text(cf));
 			config_destroy(cf);
-			printf("config.cfg not found or can't be open\n");
+			printf("using default config.cfg but not found or can't be open\n");
 			return(EXIT_FAILURE);
 		}
 // get data from config file still unsafe
 	const char *agentNumber=NULL;
 	config_lookup_string(cf, "agent_num", &agentNumber);
 	int agentNum = atoi(agentNumber);
-	const char *confNumber=NULL;
-	config_lookup_string(cf, "server", &confNumber);
-	int serverBool = atoi(confNumber);
-	
+
+#define ARRAY_CONSENSUS
+#ifdef ARRAY_CONSENSUS
 	const char *ipAgent1=NULL;
 	if( config_lookup_string(cf, "ipAgent1", &ipAgent1) )
-		printf("IP Agent1 %s/n", ipAgent1);
-	else printf("IP Agent1 not available/n");
+		printf("IP Agent1 %s\n", ipAgent1);
+	else printf("IP Agent1 not available\n");
 	const char *ipAgent2=NULL;
 	if( config_lookup_string(cf, "ipAgent2", &ipAgent2) )
-		printf("IP Agent2 %s/n", ipAgent2);
-	else printf("IP Agent2 not available/n");
+		printf("IP Agent2 %s\n", ipAgent2);
+	else printf("IP Agent2 not available\n");
 	const char *ipAgent3=NULL;
 	if( config_lookup_string(cf, "ipAgent3", &ipAgent3) )
-		printf("IP Agent2 %s/n", ipAgent2);
-	else printf("IP Agent2 not available/n");
+		printf("IP Agent3 %s\n", ipAgent3);
+	else printf("IP Agent3 not available\n");
 	const char *ipAgent4=NULL;
 	if( config_lookup_string(cf, "ipAgent4", &ipAgent4) )
-		printf("IP Agent2 %s/n", ipAgent2);
-	else printf("IP Agent2 not available/n");
+		printf("IP Agent4 %s\n", ipAgent4);
+	else printf("IP Agent4 not available\n");
+// reading 2 dimension array.
+	int8_t A_array[25];
+	arraycontainTypedef arrayContainer;
+	arrayContainer.Array = A_array;
+	read2DimArray(cf, &arrayContainer, "Adjacency");
+	printMatrix(&arrayContainer);
+#endif // #ifdef ARRAY_CONSENSUS
 
 	const char *posX=NULL;
 	config_lookup_string(cf, "posX", &posX);
@@ -178,7 +185,7 @@ int main(int argc, char* argv[])
 	const char *targetY=NULL;
 	config_lookup_string(cf, "targetY", &targetY);
 	double targetYdouble = atof((char*) targetY);
-#ifndef SINGLE_CONSENSUS
+#ifdef CONSENSUS_OLD
 //  preparation for NETWORK and create server if it's ok with config.cfg
 	int serverfd = 0, connfd = 0;
 	double data[4];
@@ -189,35 +196,59 @@ int main(int argc, char* argv[])
 		connfd = accept(serverfd, (struct sockaddr*) NULL, NULL);
 		printf("a client connect with %d file descriptor\n", connfd);
 
-		/*
-		data[0] = atof(argv[1]);
-		data[1] = data[0]*20;
-		data[2] = data[0]*3;
-		data[3] = data[0]*4;
-		sleep(1);
-		printf("sent data %f\n",data[0]);
-		while(1) {
-			sentData(connfd, data, 32);
-			readSocket(connfd, Rdata, 33);
-			printf("readSocket() done, %f %f\n", Rdata[0], Rdata[1]);
-		}
-		*/
 	} else { // this is as client
 		connfd = create_client((char *)ipServer);
 		printf("client connect with %d file descriptor\n", connfd);
-		/*
-		data[0] = 3.12145;
-		data[1] = data[0]*20;
-		data[2] = data[0]*3;
-		data[3] = data[0]*4;
-		while(1) {
-			sentData(connfd, data, 32);
-			readSocket(connfd, Rdata, 33);
-			printf("readSocket() done, %f %f %f %f\n", Rdata[0], Rdata[1], Rdata[2], Rdata[3]);
-		}
-		*/
 	}
-#endif // #ifndef SINGLE_CONSENSUS
+#endif // #ifndef CONSENSUS_OLD
+
+#ifdef ARRAY_CONSENSUS
+// creating network connection listed from array
+//  preparation for NETWORK and create server if it's ok with config.cfg
+	int serverfd = 0, connfd = 0;
+	int connfdAgentJ[arrayContainer.A_row];
+	printf("arrayContainer.A_row = %d\n", arrayContainer.A_row);
+	for(int agentJ = 0; agentJ < arrayContainer.A_row; agentJ++) {
+		printf("arrayContainer.Array[agentNum*4+agentJ] = %d \n", arrayContainer.Array[(agentNum-1) *4+agentJ]);
+
+		if( arrayContainer.Array[(agentNum-1) *4+agentJ] == 2 ) { // server
+			if( serverfd <= 0) {
+				serverfd = create_server();
+				printf("server created with %d fd, waiting to accept client\n", serverfd);
+			}
+			connfd = accept(serverfd, (struct sockaddr*) NULL, NULL);
+			printf("a client connect with %d file descriptor\n", connfd);
+			int recAgentNum = 0;
+			int readed = read(connfd, &recAgentNum, 2); //receiving agent number
+			printf(ANSI_COLOR_GREEN"[INFO] receiving agent number %d\n"ANSI_COLOR_RESET, recAgentNum);
+			if( recAgentNum < (arrayContainer.A_row+1) ) {
+				connfdAgentJ[recAgentNum-1] = connfd;
+			} else {
+				printf(ANSI_COLOR_RED"[ERROR] agent number too big\n"ANSI_COLOR_RESET);
+			}
+
+
+		} else if( arrayContainer.Array[(agentNum-1) *4+agentJ] == 1 ) { // client
+			printf("connecting to ipAgentJ = %d\n", agentJ);
+			if(agentJ == 0)
+				connfd = create_client((char *)ipAgent1);
+			if(agentJ == 1)
+				connfd = create_client((char *)ipAgent2);
+			if(agentJ == 2)
+				connfd = create_client((char *)ipAgent3);
+			if(agentJ == 3)
+				connfd = create_client((char *)ipAgent4);
+			printf("client connect with %d file descriptor\n", connfd);
+			printf(ANSI_COLOR_GREEN"sending agent number %d\n"ANSI_COLOR_RESET, agentNum);
+			write(connfd, &agentNum, 2);// sending agent number
+			connfdAgentJ[agentJ] = connfd;
+		}
+	}
+
+	printf("connection establish between agent\n");
+	while(1);
+
+#endif // #ifdef ARRAY_CONSENSUS
 		
 // preparation FORKING CHILD FOR SERIAL COMM
 	char sentstring[20];// write buffer to serialport
@@ -360,7 +391,7 @@ int main(int argc, char* argv[])
 			if(delta_y == 0.0) delta_y = 0.01;
 			Vx = delta_x / stateReceived[0] * 1000; // dx/dt
 			Vy = delta_y / stateReceived[0] * 1000; // dy/dt
-#ifndef SINGLE_CONSENSUS
+#ifdef CONSENSUS_OLD
 // data communication and consensus algorithm
 			data[X] = position[X];
 			data[Y] = position[Y];
@@ -374,6 +405,7 @@ int main(int argc, char* argv[])
 			double vcy = Rdata[3] - Vy;
 // end of data communication and consensus algorithm
 #endif //#ifndef SINGLE_CONSENSUS
+
 #ifdef REPEL
 			double jarakAgentKuadrat = (position[X]-Rdata[X])*(position[X]-Rdata[X]) + (position[Y]-Rdata[Y])*(position[Y]-Rdata[Y]);
 			double xrepel = Kr * exp(-jarakAgentKuadrat/rAgent) * (position[X]-Rdata[X]);
@@ -408,13 +440,14 @@ int main(int argc, char* argv[])
 
 			//controlInput[X] = - kv * Vx - kf*Ax;
 			//controlInput[Y] = - kv * Vy - kf*Ay;
-#ifdef SINGLE_CONSENSUS
-			controlInput[X] = - kf * Ax ;
-			controlInput[Y] = - kf * Ay ;
-#else
+#ifdef CONSENSUS_OLD
 			controlInput[X] = - kf*Ax + vcx;
 			controlInput[Y] = - kf*Ay + vcy;
-#endif //#ifdef SINGLE_CONSENSUS
+#else
+			controlInput[X] = - kf * Ax ;
+			controlInput[Y] = - kf * Ay ;
+#endif //#ifdef CONSENSUS_OLD
+
 #ifdef SIMPLE_ALGORITHM
 			controlInput[X] = -3* (position[X] - targetPosition[X]);
 			controlInput[Y] = -3* (position[Y] - targetPosition[Y]);

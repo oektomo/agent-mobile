@@ -1,7 +1,7 @@
 #!/bin/bash
 if [ $# -eq 2 ]
 then
-pscp -scp -l pi -pw raspberrz $1 pi@192.168.0.10$2:/home/pi/agent
+pscp -scp -l pi -pw raspberrz $1 pi@192.168.0.10$2:/home/pi/agent/$1
 #pscp -scp -pw raspberrz  *.hpp pi@192.168.0.103:/home/pi/agent
 #pscp -scp -pw raspberrz  makeserial.sh pi@192.168.0.103:/home/pi/agent
 #pscp -scp -pw raspberrz  makemainserial2.sh pi@192.168.0.103:/home/pi/agent

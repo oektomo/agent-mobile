@@ -8,6 +8,8 @@ int A_col;
 int A_row;
 } arraycontainTypedef;
 
-void read2DimArray(config_t *cf, int8_t *A_array, const char *lookStr);
+void read2DimArray(config_t *cf, arraycontainTypedef* arrayContainer, const char *lookStr);
+
+void printMatrix(arraycontainTypedef* arrayContainer);
 
 #endif

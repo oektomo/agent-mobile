@@ -139,7 +139,8 @@ void sentData(int sockfd, double* fData, int size)
 }
 
 /**
-* generic read from socket
+* generic read from socket specific for our data stream
+* S double & double & double & double E
 * blocking while socket open
 */
 int readSocket(int sockfd, double* fData, int size)
