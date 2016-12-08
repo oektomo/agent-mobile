@@ -185,6 +185,35 @@ int main(int argc, char* argv[])
 	const char *targetY=NULL;
 	config_lookup_string(cf, "targetY", &targetY);
 	double targetYdouble = atof((char*) targetY);
+
+#ifdef CONST_FROM_CONFIG
+	const char *W1char=NULL;
+	config_lookup_string(cf, "W1", &W1char);
+	double W1 = atof((char*) W1char);
+	const char *W2char=NULL;
+	config_lookup_string(cf, "W2", &W2char);
+	double W2 = atof((char*) W2char);
+#endif //#ifndef CONST_FROM_CONFIG
+
+#define CONST_FROM_CONFIG2
+#ifdef CONST_FROM_CONFIG2
+	const char *KVchar=NULL;
+	config_lookup_string(cf, "KV", &KVchar);
+	double KV = atof((char*) KVchar);
+	const char *KFchar=NULL;
+	config_lookup_string(cf, "KF", &KFchar);
+	double KF = atof((char*) KFchar);
+	const char *KRchar=NULL;
+	config_lookup_string(cf, "KR", &KRchar);
+	double KR = atof((char*) KRchar);
+	const char *OBSTACLE1Xchar=NULL;
+	config_lookup_string(cf, "OBSTACLE1X", &OBSTACLE1Xchar);
+	double OBSTACLE1X = atof((char*) OBSTACLE1Xchar);
+	const char *OBSTACLE1Ychar=NULL;
+	config_lookup_string(cf, "OBSTACLE1Y", &OBSTACLE1Ychar);
+	double OBSTACLE1Y = atof((char*) OBSTACLE1Ychar);
+#endif //#ifdef CONST_FROM_CONFIG2
+
 #ifdef CONSENSUS_OLD
 //  preparation for NETWORK and create server if it's ok with config.cfg
 	int serverfd = 0, connfd = 0;
@@ -304,15 +333,25 @@ int main(int argc, char* argv[])
 	double Vx, Vy;
 	double attractiveControl[2], obsFunc0 = 0, goalFunc0, NowJ, delta_x, delta_y, deltaJx, deltaJy, Ax, Ay;
 	sign[L] = 0; sign[R] = 0;
+#ifdef CONST_FROM_CONFIG2
+	double kv = KV, kf = KF, Kr = KR;
+#else
 	double kv = 8, kf = 25, Kr = 10;
+#endif //#ifndef CONST_FROM_CONFIG2
+
 	double position[3], positionKMin1[3];
 	position[X] = posXdouble;
 	position[Y] = posYdouble;
 	position[2] = 0;
 	targetPosition[0] = targetXdouble;
 	targetPosition[1] = targetYdouble;
+#ifdef CONST_FROM_CONFIG2
+	obstacle1[X] = OBSTACLE1X;
+	obstacle1[Y] = OBSTACLE1Y;
+#else
 	obstacle1[X] = 80;
 	obstacle1[Y] = 0;
+#endif //#ifndef CONST_FROM_CONFIG2
 	controlInput[0] = 12;
 	controlInput[1] = 0;
 	int compassfd = initializeCompass();
